@@ -358,10 +358,10 @@ export default function Home() {
 
           {/* Navigation Tabs */}
           <div className="mb-6">
-            <nav className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <nav className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`py-2 px-4 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'overview'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -376,7 +376,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveTab('daily')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`py-2 px-4 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'daily'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -389,7 +389,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveTab('pages')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`py-2 px-4 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'pages'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -404,7 +404,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveTab('automation')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`py-2 px-4 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'automation'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -419,7 +419,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`py-2 px-4 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'history'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
