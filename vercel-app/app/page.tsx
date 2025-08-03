@@ -206,7 +206,7 @@ export default function Dashboard() {
         <div className="text-center">
           <div className="relative">
             <div className="animate-spin h-16 w-16 border-4 border-gray-200 border-t-blue-500 rounded-full mx-auto mb-6"></div>
-            <div className="absolute inset-0 h-16 w-16 border-4 border-transparent border-t-blue-300 rounded-full mx-auto animate-spin" style={{animationDelay: '0.5s', animationDuration: '2s'}}></div>
+            <div className="absolute inset-0 h-16 w-16 border-4 border-transparent border-t-blue-300 rounded-full mx-auto animate-spin"></div>
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Dashboard</h2>
           <p className="text-gray-600">Fetching your latest LLMs.txt files...</p>
@@ -216,7 +216,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50/30 px-4 py-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <header className="text-center mb-12">
