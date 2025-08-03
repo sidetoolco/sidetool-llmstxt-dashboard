@@ -1,0 +1,130 @@
+name: Generate LLMs.txt Daily for Sidetool.co
+
+on:
+  schedule:
+    # Run every day at 3am UTC (7pm PST / 8pm PDT)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  generate-llmstxt:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate LLMs.txt files for sidetool.co
+        env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # Create output directory if it doesn't exist
+          mkdir -p ./public
+          
+          # Generate LLMs.txt with focus on blog content
+          # Using higher max-urls to ensure all blog posts are captured
+          python generate_sidetool_llmstxt.py \
+            https://www.sidetool.co \
+            --max-urls 150 \
+            --output-dir ./public \
+            --focus-paths "/blog,/docs,/features,/pricing,/about"
+          
+          # Verify files were created
+          if [ ! -f "./public/llms.txt" ] || [ ! -f "./public/llms-full.txt" ]; then
+            echo "Error: LLMs.txt files were not generated"
+            exit 1
+          fi
+          
+          # Log file sizes for monitoring
+          echo "Generated files:"
+          ls -lh ./public/llms*.txt
+
+      - name: Upload to Supabase Storage (Backup)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Get current date for versioning
+          DATE=$(date +%Y-%m-%d)
+          
+          # Upload to Supabase storage as backup
+          curl -X POST \
+            "$SUPABASE_URL/storage/v1/object/llms-files/sidetool/$DATE/llms.txt" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: text/plain" \
+            --data-binary "@./public/llms.txt"
+          
+          curl -X POST \
+            "$SUPABASE_URL/storage/v1/object/llms-files/sidetool/$DATE/llms-full.txt" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: text/plain" \
+            --data-binary "@./public/llms-full.txt"
+
+      - name: Commit and push LLMs.txt files
+        run: |
+          # Configure git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Add files
+          git add public/llms.txt public/llms-full.txt
+          
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Commit with timestamp
+            TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S UTC")
+            git commit -m "🤖 Update LLMs.txt files - $TIMESTAMP [skip ci]"
+            
+            # Push to main branch
+            git push origin main
+          fi
+
+      - name: Verify deployment
+        run: |
+          # Wait a moment for deployment
+          sleep 30
+          
+          # Check if files are accessible
+          echo "Checking https://sidetool.co/llms.txt"
+          curl -I https://sidetool.co/llms.txt || echo "Note: Files will be available after Vercel deployment"
+          
+          echo "Checking https://sidetool.co/llms-full.txt"
+          curl -I https://sidetool.co/llms-full.txt || echo "Note: Files will be available after Vercel deployment"
+
+      - name: Send completion notification
+        if: success()
+        run: |
+          echo "✅ LLMs.txt files generated successfully!"
+          echo "Files will be available at:"
+          echo "  - https://sidetool.co/llms.txt"
+          echo "  - https://sidetool.co/llms-full.txt"
+          echo "Backup stored in Supabase at: llms-files/sidetool/$(date +%Y-%m-%d)/"
+
+      - name: Handle failure
+        if: failure()
+        run: |
+          echo "❌ Failed to generate LLMs.txt files"
+          echo "Check the logs above for error details"
