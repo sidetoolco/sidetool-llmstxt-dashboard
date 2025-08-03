@@ -519,6 +519,35 @@ serve(async (req) => {
     console.log(`📊 Total size: ${(totalSize / 1024).toFixed(1)} KB`)
     console.log(`🗃️ Generation ID: ${generationId}`)
 
+    // Send email notification for new files
+    try {
+      console.log('📧 Sending email notification...')
+      
+      const emailResponse = await fetch(`${Deno.env.get('VERCEL_APP_URL') || 'https://sidetool-llmstxt-dashboard.vercel.app'}/api/send-email-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: allFiles,
+          generation_id: generationId,
+          generated_at: timestamp,
+          total_files: Object.keys(allFiles).length
+        })
+      })
+
+      if (emailResponse.ok) {
+        const emailResult = await emailResponse.json()
+        console.log('✅ Email notification sent successfully:', emailResult.email_id)
+      } else {
+        const emailError = await emailResponse.text()
+        console.error('❌ Email notification failed:', emailError)
+      }
+    } catch (emailError) {
+      console.error('❌ Email notification error:', emailError)
+      // Don't fail the entire generation if email fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -526,7 +555,8 @@ serve(async (req) => {
         file_count: Object.keys(allFiles).length,
         total_size: totalSize,
         generated_at: timestamp,
-        files: Object.keys(allFiles)
+        files: Object.keys(allFiles),
+        email_notification: 'attempted'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

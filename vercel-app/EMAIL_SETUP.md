@@ -6,10 +6,14 @@ This system automatically sends email notifications to `ed@sidetool.co` whenever
 
 Add these to your Vercel environment variables:
 
-### RESEND_API_KEY
-1. Sign up at [resend.com](https://resend.com)
-2. Create an API key
-3. Add to Vercel as `RESEND_API_KEY`
+### RESEND_API_KEY ✅
+Your API key is ready: `re_Legh7Pba_FyLYUgYuVBN4Lpit5C4Tb1fS`
+
+Add to Vercel:
+1. Go to Vercel Dashboard → Settings → Environment Variables
+2. Add: `RESEND_API_KEY` = `re_Legh7Pba_FyLYUgYuVBN4Lpit5C4Tb1fS`
+3. Select all environments (Production, Preview, Development)
+4. Save
 
 ### Domain Verification (Optional but Recommended)
 1. In Resend dashboard, add `sidetool.co` as a domain
