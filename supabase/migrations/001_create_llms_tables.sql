@@ -1,86 +1,170 @@
--- Create storage bucket for llms files
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('llms-files', 'llms-files', true)
-ON CONFLICT (id) DO NOTHING;
+-- Enable required extensions
+create extension if not exists "uuid-ossp";
 
--- Create table for generation logs
-CREATE TABLE IF NOT EXISTS public.llms_generation_logs (
-  id BIGSERIAL PRIMARY KEY,
-  site_url TEXT NOT NULL,
-  urls_processed INTEGER NOT NULL DEFAULT 0,
-  urls_successful INTEGER NOT NULL DEFAULT 0,
-  llms_txt_path TEXT,
-  llms_full_txt_path TEXT,
-  error_message TEXT,
-  generated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create storage bucket for LLMs files
+insert into storage.buckets (id, name, public) 
+values ('llms-files', 'llms-files', true)
+on conflict (id) do nothing;
+
+-- Create storage policy for public read access
+create policy "Public Access" on storage.objects
+for select using (bucket_id = 'llms-files');
+
+-- Create storage policy for service role write access
+create policy "Service Role Access" on storage.objects
+for all using (bucket_id = 'llms-files' and auth.role() = 'service_role');
+
+-- Table to track each generation run
+create table llms_generations (
+  id uuid default uuid_generate_v4() primary key,
+  generation_id uuid not null unique,
+  generated_at timestamp with time zone not null default now(),
+  file_count integer not null,
+  total_size bigint not null,
+  blog_posts jsonb not null,
+  status text not null default 'pending' check (status in ('pending', 'completed', 'failed')),
+  error_message text,
+  created_at timestamp with time zone not null default now()
 );
 
--- Create index for faster queries
-CREATE INDEX IF NOT EXISTS idx_llms_generation_logs_site_url 
-ON public.llms_generation_logs(site_url);
+-- Table to store individual file metadata
+create table llms_files (
+  id uuid default uuid_generate_v4() primary key,
+  generation_id uuid not null references llms_generations(generation_id) on delete cascade,
+  file_key text not null,
+  file_name text not null,
+  file_path text not null,
+  content text not null,
+  size bigint not null,
+  category text not null check (category in ('collection', 'topic', 'individual')),
+  description text not null,
+  post_count integer,
+  topic text,
+  blog_post jsonb,
+  url text,
+  generated_at timestamp with time zone not null,
+  created_at timestamp with time zone not null default now()
+);
 
-CREATE INDEX IF NOT EXISTS idx_llms_generation_logs_generated_at 
-ON public.llms_generation_logs(generated_at DESC);
+-- Create indexes for better query performance
+create index idx_llms_generations_generated_at on llms_generations(generated_at desc);
+create index idx_llms_generations_status on llms_generations(status);
+create index idx_llms_files_generation_id on llms_files(generation_id);
+create index idx_llms_files_category on llms_files(category);
+create index idx_llms_files_generated_at on llms_files(generated_at desc);
 
--- Create RLS policies
-ALTER TABLE public.llms_generation_logs ENABLE ROW LEVEL SECURITY;
+-- Create view for latest generation with file count
+create view llms_latest_generation as
+select 
+  g.*,
+  count(f.id) as actual_file_count
+from llms_generations g
+left join llms_files f on g.generation_id = f.generation_id
+where g.generated_at = (
+  select max(generated_at) 
+  from llms_generations 
+  where status = 'completed'
+)
+group by g.id, g.generation_id, g.generated_at, g.file_count, g.total_size, g.blog_posts, g.status, g.error_message, g.created_at
+limit 1;
 
--- Allow public read access to generation logs
-CREATE POLICY "Allow public read access" 
-ON public.llms_generation_logs 
-FOR SELECT 
-TO public 
-USING (true);
+-- Create view for file statistics
+create view llms_file_stats as
+select 
+  category,
+  count(*) as file_count,
+  sum(size) as total_size,
+  avg(size) as avg_size,
+  min(generated_at) as first_generated,
+  max(generated_at) as last_generated
+from llms_files
+group by category;
+
+-- Row Level Security (RLS) policies
+alter table llms_generations enable row level security;
+alter table llms_files enable row level security;
+
+-- Allow public read access to completed generations
+create policy "Public read access to completed generations" on llms_generations
+for select using (status = 'completed');
+
+-- Allow public read access to files from completed generations
+create policy "Public read access to files" on llms_files
+for select using (
+  generation_id in (
+    select generation_id from llms_generations where status = 'completed'
+  )
+);
 
 -- Allow service role full access
-CREATE POLICY "Service role has full access" 
-ON public.llms_generation_logs 
-FOR ALL 
-TO service_role 
-USING (true) 
-WITH CHECK (true);
+create policy "Service role full access to generations" on llms_generations
+for all using (auth.role() = 'service_role');
 
--- Create a view for latest generation per site
-CREATE OR REPLACE VIEW public.latest_llms_generation AS
-SELECT DISTINCT ON (site_url) 
-  id,
-  site_url,
-  urls_processed,
-  urls_successful,
-  llms_txt_path,
-  llms_full_txt_path,
-  error_message,
-  generated_at,
-  created_at
-FROM public.llms_generation_logs
-ORDER BY site_url, generated_at DESC;
+create policy "Service role full access to files" on llms_files
+for all using (auth.role() = 'service_role');
 
--- Grant permissions on the view
-GRANT SELECT ON public.latest_llms_generation TO public;
+-- Function to get latest files
+create or replace function get_latest_llms_files()
+returns table (
+  file_key text,
+  file_name text,
+  file_path text,
+  content text,
+  size bigint,
+  category text,
+  description text,
+  post_count integer,
+  topic text,
+  blog_post jsonb,
+  url text,
+  generated_at timestamp with time zone,
+  storage_url text
+)
+language sql
+stable
+as $$
+  select 
+    f.file_key,
+    f.file_name,
+    f.file_path,
+    f.content,
+    f.size,
+    f.category,
+    f.description,
+    f.post_count,
+    f.topic,
+    f.blog_post,
+    f.url,
+    f.generated_at,
+    concat('https://your-project.supabase.co/storage/v1/object/public/llms-files/', f.file_path) as storage_url
+  from llms_files f
+  join llms_generations g on f.generation_id = g.generation_id
+  where g.generated_at = (
+    select max(generated_at) 
+    from llms_generations 
+    where status = 'completed'
+  )
+  order by f.category, f.file_name;
+$$;
 
--- Storage policies for the bucket
-CREATE POLICY "Public read access for llms files"
-ON storage.objects
-FOR SELECT
-TO public
-USING (bucket_id = 'llms-files');
+-- Function to clean up old generations (keep last 30 days)
+create or replace function cleanup_old_generations()
+returns void
+language sql
+as $$
+  delete from llms_generations 
+  where generated_at < now() - interval '30 days'
+  and status != 'completed';
+  
+  delete from storage.objects 
+  where bucket_id = 'llms-files' 
+  and created_at < now() - interval '30 days';
+$$;
 
-CREATE POLICY "Service role can upload llms files"
-ON storage.objects
-FOR INSERT
-TO service_role
-WITH CHECK (bucket_id = 'llms-files');
-
-CREATE POLICY "Service role can update llms files"
-ON storage.objects
-FOR UPDATE
-TO service_role
-USING (bucket_id = 'llms-files')
-WITH CHECK (bucket_id = 'llms-files');
-
-CREATE POLICY "Service role can delete llms files"
-ON storage.objects
-FOR DELETE
-TO service_role
-USING (bucket_id = 'llms-files');
+-- Grant necessary permissions
+grant usage on schema public to anon;
+grant select on llms_generations to anon;
+grant select on llms_files to anon;
+grant select on llms_latest_generation to anon;
+grant select on llms_file_stats to anon;
+grant execute on function get_latest_llms_files() to anon;

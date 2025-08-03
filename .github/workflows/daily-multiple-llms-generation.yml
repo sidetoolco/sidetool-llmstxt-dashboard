@@ -1,0 +1,221 @@
+name: Daily Multiple LLMs.txt Generation
+
+on:
+  schedule:
+    # Run every day at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-multiple-llms:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate multiple LLMs.txt files
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "🚀 Starting multiple LLMs.txt generation..."
+          
+          # Create timestamp for this generation
+          TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
+          echo "Generation timestamp: $TIMESTAMP"
+          
+          # Create directories
+          mkdir -p ./generated-files
+          mkdir -p ./generated-files/daily
+          mkdir -p ./generated-files/history
+          
+          # Generate files using the standalone generator
+          node -e "
+            import('./scripts/llms-file-generator.js').then(async ({ generateMultipleLLMsFiles }) => {
+              const fs = require('fs');
+              const path = require('path');
+              
+              try {
+                const files = await generateMultipleLLMsFiles();
+                const timestamp = process.env.TIMESTAMP || new Date().toISOString().replace(/[:.]/g, '-');
+                
+                // Save all files to daily directory
+                Object.entries(files).forEach(([key, file]) => {
+                  const filePath = path.join('./generated-files/daily', file.name);
+                  fs.writeFileSync(filePath, file.content, 'utf8');
+                  console.log(\`✅ Generated: \${file.name} (\${(file.content.length / 1024).toFixed(1)} KB)\`);
+                });
+                
+                // Save metadata for the dashboard to read
+                const metadata = {
+                  timestamp: new Date().toISOString(),
+                  generatedFiles: Object.keys(files).length,
+                  totalSize: Object.values(files).reduce((sum, f) => sum + f.content.length, 0),
+                  files: Object.fromEntries(
+                    Object.entries(files).map(([key, file]) => [
+                      key, 
+                      { 
+                        name: file.name, 
+                        size: file.content.length, 
+                        category: file.category,
+                        description: file.description 
+                      }
+                    ])
+                  )
+                };
+                
+                fs.writeFileSync(
+                  './generated-files/daily/generation-metadata.json', 
+                  JSON.stringify(metadata, null, 2)
+                );
+                
+                // Also save to vercel-app directory for direct access
+                const vercelGenDir = './vercel-app/generated-files/daily';
+                if (!fs.existsSync(vercelGenDir)) {
+                  fs.mkdirSync(vercelGenDir, { recursive: true });
+                }
+                
+                // Copy files to vercel directory
+                Object.entries(files).forEach(([key, file]) => {
+                  const vercelFilePath = path.join(vercelGenDir, file.name);
+                  fs.writeFileSync(vercelFilePath, file.content, 'utf8');
+                });
+                
+                fs.writeFileSync(
+                  path.join(vercelGenDir, 'generation-metadata.json'),
+                  JSON.stringify(metadata, null, 2)
+                );
+                
+                console.log(\`🎉 Generated \${metadata.generatedFiles} files, total size: \${(metadata.totalSize / 1024).toFixed(1)} KB\`);
+                console.log(\`📁 Files saved to both ./generated-files/daily/ and ./vercel-app/generated-files/daily/\`);
+                
+              } catch (error) {
+                console.error('❌ Generation failed:', error);
+                process.exit(1);
+              }
+            }).catch(error => {
+              console.error('❌ Import failed:', error);
+              process.exit(1);
+            });
+          "
+
+      - name: Create generation summary
+        run: |
+          echo "## 📊 Daily LLMs.txt Generation Report" > generation-report.md
+          echo "" >> generation-report.md
+          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> generation-report.md
+          echo "**Files:** $(ls -1 ./generated-files/daily/*.txt | wc -l)" >> generation-report.md
+          echo "" >> generation-report.md
+          
+          echo "### Generated Files:" >> generation-report.md
+          for file in ./generated-files/daily/*.txt; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              size=$(ls -lh "$file" | awk '{print $5}')
+              echo "- **$filename**: $size" >> generation-report.md
+            fi
+          done
+          
+          echo "" >> generation-report.md
+          echo "### Deployment URLs:" >> generation-report.md
+          for file in ./generated-files/daily/*.txt; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "- https://sidetool-llmstxt-dashboard.vercel.app/files/$filename" >> generation-report.md
+            fi
+          done
+
+      - name: Archive previous generation
+        run: |
+          TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
+          
+          # Move current daily files to history if they exist
+          if [ -d "./generated-files/history/latest" ]; then
+            mv "./generated-files/history/latest" "./generated-files/history/$TIMESTAMP"
+          fi
+          
+          # Copy new files to history/latest
+          mkdir -p "./generated-files/history/latest"
+          cp -r ./generated-files/daily/* "./generated-files/history/latest/"
+
+      - name: Commit and push generated files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action - LLMs Generation"
+          
+          # Add all generated files including vercel directory
+          git add generated-files/
+          git add vercel-app/generated-files/
+          git add generation-report.md
+          
+          # Check if there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            file_count=$(ls -1 ./generated-files/daily/*.txt | wc -l)
+            total_size=$(du -ch ./generated-files/daily/*.txt | tail -1 | cut -f1)
+            
+            git commit -m "🤖 Daily LLMs.txt generation - $(date -u '+%Y-%m-%d')
+
+            Generated: $file_count files ($total_size total)
+            Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+            
+            Files updated:
+            $(ls -1 ./generated-files/daily/*.txt | sed 's|./generated-files/daily/|- |')"
+            
+            git push
+            echo "✅ Files committed and pushed to repository"
+          else
+            echo "ℹ️ No changes to commit"
+          fi
+
+      - name: Deploy to Vercel (trigger)
+        run: |
+          # The Vercel deployment will be triggered automatically by the git push
+          echo "🚀 Vercel deployment will be triggered automatically"
+          echo "📍 Files will be available at: https://sidetool-llmstxt-dashboard.vercel.app/"
+
+      - name: Create deployment status
+        run: |
+          echo "deployment_status=success" >> $GITHUB_OUTPUT
+          echo "file_count=$(ls -1 ./generated-files/daily/*.txt | wc -l)" >> $GITHUB_OUTPUT
+          echo "generation_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      - name: Upload generation artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: llms-files-$(date -u '+%Y%m%d')
+          path: |
+            generated-files/daily/
+            generation-report.md
+          retention-days: 30
+
+  notify-completion:
+    runs-on: ubuntu-latest
+    needs: generate-multiple-llms
+    if: always()
+    
+    steps:
+      - name: Notify success
+        if: needs.generate-multiple-llms.result == 'success'
+        run: |
+          echo "✅ Daily LLMs.txt generation completed successfully"
+          echo "📊 Files generated: ${{ needs.generate-multiple-llms.outputs.file_count }}"
+          echo "⏰ Generated at: ${{ needs.generate-multiple-llms.outputs.generation_time }}"
+          echo "🔗 Dashboard: https://sidetool-llmstxt-dashboard.vercel.app/"
+
+      - name: Notify failure
+        if: needs.generate-multiple-llms.result == 'failure'
+        run: |
+          echo "❌ Daily LLMs.txt generation failed"
+          echo "🔍 Check the workflow logs for details"
+          # In a real setup, you could send Slack/email notifications here

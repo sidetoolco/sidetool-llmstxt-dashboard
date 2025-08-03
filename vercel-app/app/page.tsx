@@ -7,6 +7,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [copying, setCopying] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [generating, setGenerating] = useState(false)
+  const [publishingFile, setPublishingFile] = useState<string | null>(null)
 
   useEffect(() => {
     loadDailyFiles()
@@ -15,11 +17,33 @@ export default function Dashboard() {
   const loadDailyFiles = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/daily-recommendation')
+      // Try Supabase API first (database-backed with cron generation)
+      const response = await fetch('/api/supabase-files')
       const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
       setDailyFiles(data)
     } catch (error) {
-      console.error('Error loading daily files:', error)
+      console.error('Error loading Supabase files:', error)
+      // Fallback to local file generation
+      try {
+        const fallbackResponse = await fetch('/api/files')
+        const fallbackData = await fallbackResponse.json()
+        setDailyFiles({ ...fallbackData, source: 'fallback-local' })
+      } catch (fallbackError) {
+        console.error('Error loading fallback files:', fallbackError)
+        // Final fallback to original API
+        try {
+          const finalResponse = await fetch('/api/daily-recommendation')
+          const finalData = await finalResponse.json()
+          setDailyFiles({ ...finalData, source: 'fallback-original' })
+        } catch (finalError) {
+          console.error('All APIs failed:', finalError)
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -56,6 +80,77 @@ export default function Dashboard() {
         downloadFile(file.name, file.content)
       }, Object.keys(dailyFiles.files).indexOf(key) * 200) // Stagger downloads
     })
+  }
+
+  const triggerGeneration = async () => {
+    setGenerating(true)
+    try {
+      const response = await fetch('/api/trigger-generation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        // Wait a moment then reload files
+        setTimeout(() => {
+          loadDailyFiles()
+        }, 3000)
+      } else {
+        console.error('Generation failed:', result.error)
+        alert('Generation failed: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error triggering generation:', error)
+      alert('Error triggering generation. Check console for details.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const togglePublishStatus = async (fileId: string, currentStatus: boolean, fileName: string) => {
+    setPublishingFile(fileId)
+    try {
+      let publishedUrl = null
+      let notes = null
+      
+      if (!currentStatus) {
+        // Ask for URL when publishing
+        publishedUrl = prompt(`Enter the URL where ${fileName} is published (optional):`)
+        notes = prompt('Add any notes about this publication (optional):')
+      }
+
+      const response = await fetch('/api/publish-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileId,
+          published: !currentStatus,
+          publishedUrl,
+          notes
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        // Reload files to show updated status
+        loadDailyFiles()
+      } else {
+        console.error('Publish status update failed:', result.error)
+        alert('Failed to update publish status: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error updating publish status:', error)
+      alert('Error updating publish status. Check console for details.')
+    } finally {
+      setPublishingFile(null)
+    }
   }
 
   if (loading) {
@@ -98,6 +193,16 @@ export default function Dashboard() {
           <p className="text-sm text-gray-500 mt-2">
             Generated: {dailyFiles?.date || new Date().toLocaleDateString()} • {dailyFiles?.stats?.totalFiles || 0} files ready
           </p>
+          {dailyFiles?.source && (
+            <p className="text-xs text-gray-400 mt-1">
+              Source: {dailyFiles.source === 'supabase-cron' ? '🗄️ Supabase + Daily Cron' : 
+                       dailyFiles.source === 'cron-job' ? '🤖 Daily automation' : 
+                       dailyFiles.source === 'on-demand' ? '⚡ Generated on-demand' : 
+                       dailyFiles.source === 'fallback-local' ? '💾 Local fallback' :
+                       dailyFiles.source === 'fallback-original' ? '🔄 Original API' :
+                       '🔄 Fallback generation'}
+            </p>
+          )}
         </div>
 
         {/* Stats */}
@@ -139,15 +244,41 @@ export default function Dashboard() {
               ))}
             </div>
             
-            <button
-              onClick={downloadAll}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download All ({fileEntries.length})
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={triggerGeneration}
+                disabled={generating}
+                className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+                  generating 
+                    ? 'bg-blue-400 text-white cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {generating ? (
+                  <>
+                    <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Generate Now
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={downloadAll}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download All ({fileEntries.length})
+              </button>
+            </div>
           </div>
 
           <p className="text-sm text-gray-600">
@@ -165,14 +296,28 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {file.name}
                     </h3>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      file.category === 'collection' ? 'bg-blue-100 text-blue-700' :
-                      file.category === 'individual' ? 'bg-green-100 text-green-700' :
-                      file.category === 'topic' ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {file.category}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        file.category === 'collection' ? 'bg-blue-100 text-blue-700' :
+                        file.category === 'individual' ? 'bg-green-100 text-green-700' :
+                        file.category === 'topic' ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {file.category}
+                      </span>
+                      {file.published ? (
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Published
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                          Unpublished
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <p className="text-gray-600 mb-3">{file.description}</p>
@@ -189,6 +334,11 @@ export default function Dashboard() {
                     {file.blogPost && (
                       <div>
                         <span className="font-medium">Published:</span> {file.blogPost.date}
+                      </div>
+                    )}
+                    {file.publishedAt && (
+                      <div>
+                        <span className="font-medium">Published to web:</span> {new Date(file.publishedAt).toLocaleDateString()}
                       </div>
                     )}
                   </div>
@@ -229,8 +379,68 @@ export default function Dashboard() {
                       </>
                     )}
                   </button>
+
+                  {file.id && (
+                    <button
+                      onClick={() => togglePublishStatus(file.id, file.published, file.name)}
+                      disabled={publishingFile === file.id}
+                      className={`px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2 ${
+                        publishingFile === file.id
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : file.published
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      }`}
+                    >
+                      {publishingFile === file.id ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></div>
+                          Updating...
+                        </>
+                      ) : file.published ? (
+                        <>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                          </svg>
+                          Unpublish
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                          Publish
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Published URL Info */}
+              {file.publishedUrl && (
+                <div className="mb-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M7 13l3 3 7-7" />
+                    </svg>
+                    <span className="font-medium text-emerald-800">Published at:</span>
+                    <a 
+                      href={file.publishedUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 hover:text-emerald-900 underline"
+                    >
+                      {file.publishedUrl}
+                    </a>
+                  </div>
+                  {file.publishNotes && (
+                    <div className="mt-1 text-sm text-emerald-700">
+                      <span className="font-medium">Notes:</span> {file.publishNotes}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* File Preview */}
               <details className="group">
