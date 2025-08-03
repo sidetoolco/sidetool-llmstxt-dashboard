@@ -8,11 +8,11 @@
     scrollbar-width: thin;
   }
   
-  .scrollbar-thumb-surface-600 {
+  .scrollbar-thumb-gray-600 {
     scrollbar-color: #475569 transparent;
   }
   
-  .scrollbar-track-surface-800 {
+  .scrollbar-track-gray-800 {
     scrollbar-color: #475569 #1e293b;
   }
   
@@ -40,7 +40,7 @@
 /* Enhanced focus styles for accessibility */
 @layer base {
   * {
-    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
   }
   
   button {
