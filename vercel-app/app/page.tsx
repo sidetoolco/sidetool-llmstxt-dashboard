@@ -460,9 +460,149 @@ export default function Dashboard() {
               <p className="text-gray-600 mb-6">Try adjusting your filters or generate new files.</p>
             </div>
           ) : (
-            <div className="text-center py-16">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Files will appear here</h3>
-              <p className="text-gray-600 mb-6">Click "Generate Now" to create your LLMs.txt files.</p>
+            <div className="grid gap-6">
+              {filteredFiles.map(([fileKey, file]: [string, any]) => (
+                <div
+                  key={fileKey}
+                  className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-blue-200 overflow-hidden"
+                >
+                  {/* File Header */}
+                  <div className="flex items-start justify-between p-6 pb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                            {file.name}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                              file.category === 'collection' ? 'bg-purple-100 text-purple-700' :
+                              file.category === 'individual' ? 'bg-green-100 text-green-700' :
+                              file.category === 'topic' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {file.category === 'collection' ? '📚 Collection' :
+                               file.category === 'individual' ? '📄 Individual' :
+                               file.category === 'topic' ? '🏷️ Topic' :
+                               file.category}
+                            </span>
+                            {file.size && (
+                              <span className="text-xs text-gray-500">
+                                {(file.size / 1024).toFixed(1)}KB
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {file.published && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs font-medium text-green-700">Published</span>
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => copyToClipboard(file.content, fileKey)}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        aria-label={`Copy ${file.name} to clipboard`}
+                      >
+                        {copying === fileKey ? (
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={() => downloadFile(file.name, file.content)}
+                        className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        aria-label={`Download ${file.name}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </button>
+                      
+                      {file.id && (
+                        <button
+                          onClick={() => togglePublishStatus(file.id, file.published || false, file.name)}
+                          disabled={publishingFile === file.id}
+                          className={`p-2 rounded-lg transition-colors ${
+                            file.published 
+                              ? 'text-green-600 hover:text-green-700 hover:bg-green-50' 
+                              : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'
+                          } ${publishingFile === file.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          aria-label={file.published ? `Unpublish ${file.name}` : `Publish ${file.name}`}
+                        >
+                          {publishingFile === file.id ? (
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                          ) : file.published ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* File Content Preview */}
+                  <div className="px-6 pb-6">
+                    <div className="bg-gray-50 rounded-xl p-4 font-mono text-sm text-gray-700 overflow-hidden">
+                      <div className="max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                        {file.content?.substring(0, 300)}
+                        {file.content?.length > 300 && (
+                          <span className="text-gray-500">... ({file.content.length - 300} more characters)</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {file.description && (
+                      <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+                        {file.description}
+                      </p>
+                    )}
+                    
+                    {(file.posts || file.keywords) && (
+                      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                        {file.posts && (
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                            </svg>
+                            {file.posts} posts
+                          </span>
+                        )}
+                        {file.keywords && (
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            {file.keywords} keywords
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </main>
