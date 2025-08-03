@@ -28,7 +28,26 @@ export default function Dashboard() {
       setDailyFiles(data)
     } catch (error) {
       console.error('Error loading Supabase files:', error)
-      // Fallback to original API that works without env vars
+      
+      // Check if error is due to no files (404) vs connection error (500)
+      if (error.message && error.message.includes('No completed generations found')) {
+        // Supabase is connected but no files exist yet
+        setDailyFiles({
+          date: new Date().toISOString().split('T')[0],
+          source: 'supabase-empty',
+          stats: {
+            totalFiles: 0,
+            totalPosts: 0,
+            newPostsToday: 0,
+            totalKeywords: 0
+          },
+          files: {},
+          message: 'No files generated yet. Click "Generate Now" to create your first LLMs.txt files!'
+        })
+        return
+      }
+      
+      // Fallback to original API for connection errors
       try {
         const finalResponse = await fetch('/api/daily-recommendation')
         const finalData = await finalResponse.json()
@@ -210,6 +229,7 @@ export default function Dashboard() {
             <div className="mt-1">
               <p className="text-xs text-gray-400">
                 Source: {dailyFiles.source === 'supabase-cron' ? '🗄️ Supabase + Daily Cron' : 
+                         dailyFiles.source === 'supabase-empty' ? '🗄️ Supabase Connected (Empty)' :
                          dailyFiles.source === 'cron-job' ? '🤖 Daily automation' : 
                          dailyFiles.source === 'on-demand' ? '⚡ Generated on-demand' : 
                          dailyFiles.source === 'fallback-local' ? '💾 Local fallback' :
@@ -225,6 +245,16 @@ export default function Dashboard() {
                   </p>
                   <p className="text-xs text-yellow-700 mt-1">
                     Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> in Vercel → Settings → Environment Variables to enable full functionality.
+                  </p>
+                </div>
+              )}
+              {dailyFiles.source === 'supabase-empty' && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>🎉 Supabase Connected Successfully!</strong>
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {dailyFiles.message || 'No files generated yet. Click "Generate Now" to create your first LLMs.txt files!'}
                   </p>
                 </div>
               )}
