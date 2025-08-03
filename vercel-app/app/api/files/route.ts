@@ -35,29 +35,21 @@ export async function GET() {
       })
     }
 
-    // If no files exist from cron job, fall back to generating them on-demand
+    // If no files exist from cron job, return empty state
     if (Object.keys(files).length === 0) {
-      // Import the generator
-      const { generateMultipleLLMsFiles } = await import('../../scripts/llms-file-generator.js')
-      files = await generateMultipleLLMsFiles()
-      
-      // Update metadata
-      metadata = {
-        timestamp: new Date().toISOString(),
-        generatedFiles: Object.keys(files).length,
-        totalSize: Object.values(files).reduce((sum: number, f: any) => sum + f.content.length, 0),
-        files: Object.fromEntries(
-          Object.entries(files).map(([key, file]: [string, any]) => [
-            key, 
-            { 
-              name: file.name, 
-              size: file.content.length, 
-              category: file.category,
-              description: file.description 
-            }
-          ])
-        )
-      }
+      return NextResponse.json({
+        error: 'No files found. Please trigger a manual generation or wait for daily cron job.',
+        fallback: true,
+        date: new Date().toISOString().split('T')[0],
+        stats: {
+          totalFiles: 0,
+          totalPosts: 0,
+          newPostsToday: 0,
+          totalKeywords: 0
+        },
+        files: {},
+        source: 'no-files-available'
+      }, { status: 404 })
     }
 
     const response = {
@@ -78,28 +70,10 @@ export async function GET() {
   } catch (error: any) {
     console.error('Error loading files:', error)
     
-    // Fallback to generating files if there's an error
-    try {
-      const { generateMultipleLLMsFiles } = await import('../../scripts/llms-file-generator.js')
-      const files = await generateMultipleLLMsFiles()
-      
-      return NextResponse.json({
-        date: new Date().toISOString().split('T')[0],
-        stats: {
-          totalFiles: Object.keys(files).length,
-          totalPosts: 5,
-          newPostsToday: 1,
-          totalKeywords: 15
-        },
-        files: files,
-        generatedAt: new Date().toISOString(),
-        source: 'fallback-generation'
-      })
-    } catch (fallbackError) {
-      return NextResponse.json({
-        error: 'Failed to load or generate files',
-        details: fallbackError.message
-      }, { status: 500 })
-    }
+    return NextResponse.json({
+      error: 'Failed to load files from database',
+      details: error.message,
+      suggestion: 'Please use the "Generate Now" button to create new files'
+    }, { status: 500 })
   }
 }
