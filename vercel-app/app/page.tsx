@@ -185,21 +185,6 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin h-16 w-16 border-4 border-gray-200 border-t-blue-500 rounded-full mx-auto mb-6"></div>
-            <div className="absolute inset-0 h-16 w-16 border-4 border-transparent border-t-blue-300 rounded-full mx-auto animate-spin" style={{animationDelay: '0.5s', animationDuration: '2s'}}></div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Dashboard</h2>
-          <p className="text-gray-600">Fetching your latest LLMs.txt files...</p>
-        </div>
-      </div>
-    )
-  }
-
   const files = dailyFiles?.files || {}
   const fileEntries = Object.entries(files)
   
@@ -214,6 +199,21 @@ export default function Dashboard() {
     { id: 'individual', name: 'Individual Posts', count: fileEntries.filter(([, f]: [string, any]) => f.category === 'individual').length },
     { id: 'topic', name: 'Topic Collections', count: fileEntries.filter(([, f]: [string, any]) => f.category === 'topic').length }
   ]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative">
+            <div className="animate-spin h-16 w-16 border-4 border-gray-200 border-t-blue-500 rounded-full mx-auto mb-6"></div>
+            <div className="absolute inset-0 h-16 w-16 border-4 border-transparent border-t-blue-300 rounded-full mx-auto animate-spin" style={{animationDelay: '0.5s', animationDuration: '2s'}}></div>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Dashboard</h2>
+          <p className="text-gray-600">Fetching your latest LLMs.txt files...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50/30 px-4 py-8">
