@@ -53,14 +53,17 @@ export default function Home() {
   const [history, setHistory] = useState<GenerationLog[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'pages' | 'automation' | 'history'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'pages' | 'automation' | 'history'>('overview')
   const [darkMode, setDarkMode] = useState(false)
   const [selectedGeneration, setSelectedGeneration] = useState<GenerationLog | null>(null)
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null)
   const [automationStatus, setAutomationStatus] = useState<'active' | 'inactive'>('active')
+  const [dailyRecommendation, setDailyRecommendation] = useState<any>(null)
+  const [loadingDaily, setLoadingDaily] = useState(false)
 
   useEffect(() => {
     loadHistory()
+    loadDailyRecommendation()
     // Check system dark mode preference
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true)
@@ -133,6 +136,40 @@ export default function Home() {
       setStatusMessage('Unable to connect to the server. Please check your connection and try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadDailyRecommendation = async () => {
+    setLoadingDaily(true)
+    try {
+      const response = await fetch('/api/daily-recommendation')
+      const data = await response.json()
+      setDailyRecommendation(data)
+    } catch (error) {
+      console.error('Error loading daily recommendation:', error)
+    } finally {
+      setLoadingDaily(false)
+    }
+  }
+
+  const downloadFile = (fileName: string, content: string) => {
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const copyToClipboard = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      alert('Copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy:', error)
     }
   }
 
@@ -335,6 +372,19 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
                   <span>Overview</span>
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('daily')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === 'daily'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-lg">📅</span>
+                  <span>Daily Digest</span>
                 </div>
               </button>
               <button
@@ -633,6 +683,233 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'daily' && (
+            <div className="space-y-6">
+              {/* Daily Recommendation Header */}
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                      📅 Today's LLMs.txt Recommendation
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Fresh content for {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={loadDailyRecommendation}
+                    disabled={loadingDaily}
+                    className="px-4 py-2 bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
+                  >
+                    {loadingDaily ? (
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      'Refresh'
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {loadingDaily ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin h-8 w-8 text-blue-600" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : dailyRecommendation ? (
+                <>
+                  {/* Stats Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Blog Posts</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {dailyRecommendation.stats?.totalPosts || 0}
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">New Today</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {dailyRecommendation.stats?.newPostsToday || 0}
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Keywords</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {dailyRecommendation.stats?.totalKeywords || 0}
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">AI Reach</p>
+                      <p className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                        {dailyRecommendation.stats?.estimatedReach || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Recent Blog Posts */}
+                  {dailyRecommendation.blogPosts && dailyRecommendation.blogPosts.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Blog Posts to Include</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">These posts will boost your AI discoverability</p>
+                      </div>
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {dailyRecommendation.blogPosts.map((post: any, index: number) => (
+                          <div key={index} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-gray-900 dark:text-white">{post.title}</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{post.description}</p>
+                                <div className="flex items-center space-x-4 mt-2">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    📅 {post.date}
+                                  </span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    ⏱ {post.readTime}
+                                  </span>
+                                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                                    {post.keywords?.slice(0, 3).join(', ')}
+                                  </span>
+                                </div>
+                              </div>
+                              {post.date === new Date().toISOString().split('T')[0] && (
+                                <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded text-xs font-medium">
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Download Files */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* llms.txt */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
+                        <h3 className="text-lg font-semibold text-white">llms.txt</h3>
+                        <p className="text-blue-100 text-sm mt-1">
+                          Lightweight index ({dailyRecommendation.files?.llmsTxt?.size ? `${(dailyRecommendation.files.llmsTxt.size / 1024).toFixed(1)} KB` : 'N/A'})
+                        </p>
+                      </div>
+                      <div className="p-6">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                          {dailyRecommendation.files?.llmsTxt?.description}
+                        </p>
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => downloadFile('llms.txt', dailyRecommendation.files?.llmsTxt?.content || '')}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                          >
+                            📥 Download
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(dailyRecommendation.files?.llmsTxt?.content || '')}
+                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium text-sm"
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* llms-full.txt */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
+                        <h3 className="text-lg font-semibold text-white">llms-full.txt</h3>
+                        <p className="text-purple-100 text-sm mt-1">
+                          Complete content ({dailyRecommendation.files?.llmsFullTxt?.size ? `${(dailyRecommendation.files.llmsFullTxt.size / 1024).toFixed(1)} KB` : 'N/A'})
+                        </p>
+                      </div>
+                      <div className="p-6">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                          {dailyRecommendation.files?.llmsFullTxt?.description}
+                        </p>
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => downloadFile('llms-full.txt', dailyRecommendation.files?.llmsFullTxt?.content || '')}
+                            className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
+                          >
+                            📥 Download
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(dailyRecommendation.files?.llmsFullTxt?.content || '')}
+                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium text-sm"
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Implementation Instructions */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      🚀 How to Add to Your Website
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Quick Steps:</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                          {dailyRecommendation.implementation?.steps?.map((step: string, index: number) => (
+                            <li key={index}>{step}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <h5 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Vercel</h5>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {dailyRecommendation.implementation?.vercelInstructions}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <h5 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Nginx</h5>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {dailyRecommendation.implementation?.nginxInstructions}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <h5 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Apache</h5>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {dailyRecommendation.implementation?.apacheInstructions}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEO Tips */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                      💡 Pro Tips for AI Discovery
+                    </h3>
+                    <ul className="space-y-2">
+                      {dailyRecommendation.seoTips?.map((tip: string, index: number) => (
+                        <li key={index} className="flex items-start">
+                          <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                  <p className="text-gray-500 dark:text-gray-400">Loading daily recommendations...</p>
+                </div>
+              )}
             </div>
           )}
 
