@@ -216,12 +216,12 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50/30 px-4 py-8 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50/30 px-4 py-8">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <header className="text-center mb-12">
           <div className="mb-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-soft-lg mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg mb-6">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
@@ -236,7 +236,7 @@ export default function Dashboard() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse-subtle"></div>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span>Last updated: {dailyFiles?.date || new Date().toLocaleDateString()}</span>
             </div>
             <div className="hidden sm:block w-px h-4 bg-gray-300"></div>
@@ -311,7 +311,7 @@ export default function Dashboard() {
 
         {/* Enhanced Stats */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10" role="region" aria-label="Dashboard Statistics">
-          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -321,7 +321,7 @@ export default function Dashboard() {
             <div className="text-sm font-medium text-gray-600">Total Files</div>
           </div>
           
-          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200 transition-colors">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
@@ -331,7 +331,7 @@ export default function Dashboard() {
             <div className="text-sm font-medium text-gray-600">Blog Posts</div>
           </div>
           
-          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
             <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-yellow-200 transition-colors">
               <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -341,7 +341,7 @@ export default function Dashboard() {
             <div className="text-sm font-medium text-gray-600">New Today</div>
           </div>
           
-          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+          <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-200 transition-colors">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -353,7 +353,7 @@ export default function Dashboard() {
         </section>
 
         {/* Enhanced Filters & Actions */}
-        <section className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-soft p-6 mb-8 border border-gray-100" role="region" aria-label="File Filters and Actions">
+        <section className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md p-6 mb-8 border border-gray-100" role="region" aria-label="File Filters and Actions">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             {/* Category Filters */}
             <div className="flex flex-col gap-3">
@@ -465,7 +465,7 @@ export default function Dashboard() {
             filteredFiles.map(([fileKey, file]: [string, any]) => (
               <article 
                 key={fileKey} 
-                className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-soft hover:shadow-soft-lg p-6 transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+                className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-md hover:shadow-lg p-6 transition-all duration-300 hover:-translate-y-1 border border-gray-100"
                 role="article"
                 aria-labelledby={`file-title-${fileKey}`}
               >
@@ -500,7 +500,7 @@ export default function Dashboard() {
                         
                         {file.published ? (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 gap-1.5">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse-subtle"></div>
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                             Published
                           </span>
                         ) : (
