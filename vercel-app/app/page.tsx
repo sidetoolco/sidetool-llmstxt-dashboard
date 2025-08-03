@@ -28,21 +28,34 @@ export default function Dashboard() {
       setDailyFiles(data)
     } catch (error) {
       console.error('Error loading Supabase files:', error)
-      // Fallback to local file generation
+      // Fallback to original API that works without env vars
       try {
-        const fallbackResponse = await fetch('/api/files')
-        const fallbackData = await fallbackResponse.json()
-        setDailyFiles({ ...fallbackData, source: 'fallback-local' })
-      } catch (fallbackError) {
-        console.error('Error loading fallback files:', fallbackError)
-        // Final fallback to original API
-        try {
-          const finalResponse = await fetch('/api/daily-recommendation')
-          const finalData = await finalResponse.json()
-          setDailyFiles({ ...finalData, source: 'fallback-original' })
-        } catch (finalError) {
-          console.error('All APIs failed:', finalError)
-        }
+        const finalResponse = await fetch('/api/daily-recommendation')
+        const finalData = await finalResponse.json()
+        setDailyFiles({ ...finalData, source: 'demo-mode' })
+      } catch (finalError) {
+        console.error('All APIs failed:', finalError)
+        // Last resort: show demo data
+        setDailyFiles({
+          date: new Date().toISOString().split('T')[0],
+          source: 'demo-offline',
+          stats: {
+            totalFiles: 3,
+            totalPosts: 5,
+            newPostsToday: 1,
+            totalKeywords: 15
+          },
+          files: {
+            'llms': {
+              name: 'llms.txt',
+              content: '# Demo LLMs.txt File\n\nThis is a demo file showing the dashboard functionality.\nTo see real files, please configure Supabase environment variables in Vercel.',
+              size: 150,
+              description: 'Demo main collection file',
+              category: 'collection',
+              published: false
+            }
+          }
+        })
       }
     } finally {
       setLoading(false)
@@ -194,14 +207,28 @@ export default function Dashboard() {
             Generated: {dailyFiles?.date || new Date().toLocaleDateString()} • {dailyFiles?.stats?.totalFiles || 0} files ready
           </p>
           {dailyFiles?.source && (
-            <p className="text-xs text-gray-400 mt-1">
-              Source: {dailyFiles.source === 'supabase-cron' ? '🗄️ Supabase + Daily Cron' : 
-                       dailyFiles.source === 'cron-job' ? '🤖 Daily automation' : 
-                       dailyFiles.source === 'on-demand' ? '⚡ Generated on-demand' : 
-                       dailyFiles.source === 'fallback-local' ? '💾 Local fallback' :
-                       dailyFiles.source === 'fallback-original' ? '🔄 Original API' :
-                       '🔄 Fallback generation'}
-            </p>
+            <div className="mt-1">
+              <p className="text-xs text-gray-400">
+                Source: {dailyFiles.source === 'supabase-cron' ? '🗄️ Supabase + Daily Cron' : 
+                         dailyFiles.source === 'cron-job' ? '🤖 Daily automation' : 
+                         dailyFiles.source === 'on-demand' ? '⚡ Generated on-demand' : 
+                         dailyFiles.source === 'fallback-local' ? '💾 Local fallback' :
+                         dailyFiles.source === 'fallback-original' ? '🔄 Original API' :
+                         dailyFiles.source === 'demo-mode' ? '🎭 Demo Mode' :
+                         dailyFiles.source === 'demo-offline' ? '📱 Offline Demo' :
+                         '🔄 Fallback generation'}
+              </p>
+              {(dailyFiles.source === 'demo-mode' || dailyFiles.source === 'demo-offline') && (
+                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ Environment Variables Missing</strong>
+                  </p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> in Vercel → Settings → Environment Variables to enable full functionality.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -247,10 +274,10 @@ export default function Dashboard() {
             <div className="flex gap-3">
               <button
                 onClick={triggerGeneration}
-                disabled={generating}
+                disabled={generating || (dailyFiles?.source === 'demo-mode' || dailyFiles?.source === 'demo-offline')}
                 className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
-                  generating 
-                    ? 'bg-blue-400 text-white cursor-not-allowed' 
+                  generating || (dailyFiles?.source === 'demo-mode' || dailyFiles?.source === 'demo-offline')
+                    ? 'bg-gray-400 text-white cursor-not-allowed' 
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
@@ -258,6 +285,13 @@ export default function Dashboard() {
                   <>
                     <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full"></div>
                     Generating...
+                  </>
+                ) : (dailyFiles?.source === 'demo-mode' || dailyFiles?.source === 'demo-offline') ? (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    Needs Config
                   </>
                 ) : (
                   <>
