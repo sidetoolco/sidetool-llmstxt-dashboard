@@ -126,7 +126,8 @@ export default function Dashboard() {
           span.setAttribute('generation.type', 'manual')
           span.setAttribute('generation.source', 'dashboard')
           
-          const response = await fetch('/api/trigger-generation', {
+          // Temporary: Use direct generation until Edge Function is deployed
+          const response = await fetch('/api/generate-direct', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
