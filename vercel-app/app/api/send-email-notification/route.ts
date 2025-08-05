@@ -213,8 +213,8 @@ export async function POST(request: Request) {
     const emailContent = generateEmailContent(files, generation_id, generated_at)
     
     const { data, error } = await resend.emails.send({
-      from: 'LLMs.txt Generator <noreply@sidetool.co>',
-      to: ['ed@sidetool.co'],
+      from: 'LLMs.txt Generator <onboarding@resend.dev>',
+      to: ['hi@sidetool.co'],
       subject: `🚀 New LLMs.txt Files Generated - ${total_files} files ready`,
       html: emailContent,
     })

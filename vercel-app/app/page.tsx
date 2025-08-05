@@ -112,32 +112,76 @@ export default function Dashboard() {
 
   const triggerGeneration = async () => {
     setGenerating(true)
-    try {
-      const response = await fetch('/api/trigger-generation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ trigger: 'manual' })
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        // Reload files after successful generation
-        setTimeout(() => {
-          loadDailyFiles()
-        }, 2000) // Give it a moment to complete
-      } else {
-        console.error('Generation failed:', result.error)
-        alert('Generation failed: ' + result.error)
+    
+    // Import Sentry dynamically for client-side
+    const Sentry = await import('@sentry/nextjs')
+    
+    return Sentry.startSpan(
+      {
+        op: 'ui.action',
+        name: 'Generate LLMs.txt Files',
+      },
+      async (span) => {
+        try {
+          span.setAttribute('generation.type', 'manual')
+          span.setAttribute('generation.source', 'dashboard')
+          
+          const response = await fetch('/api/trigger-generation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ trigger: 'manual' })
+          })
+          
+          const result = await response.json()
+          
+          if (result.success) {
+            span.setAttribute('generation.success', true)
+            span.setAttribute('generation.id', result.data?.generation_id || 'unknown')
+            
+            // Reload files after successful generation
+            setTimeout(() => {
+              loadDailyFiles()
+            }, 2000) // Give it a moment to complete
+          } else {
+            span.setAttribute('generation.success', false)
+            span.setAttribute('generation.error', result.error)
+            
+            console.error('Generation failed:', result.error)
+            alert('Generation failed: ' + result.error)
+            
+            // Capture the error in Sentry
+            Sentry.captureException(new Error(result.error), {
+              tags: {
+                operation: 'manual-generation',
+                source: 'dashboard'
+              },
+              extra: {
+                details: result.details
+              }
+            })
+          }
+        } catch (error) {
+          span.setAttribute('generation.success', false)
+          span.setAttribute('generation.error', error.message)
+          
+          console.error('Error triggering generation:', error)
+          alert('Error triggering generation. Check console for details.')
+          
+          // Capture the exception in Sentry
+          Sentry.captureException(error, {
+            tags: {
+              operation: 'manual-generation',
+              source: 'dashboard',
+              error_type: 'network-error'
+            }
+          })
+        } finally {
+          setGenerating(false)
+        }
       }
-    } catch (error) {
-      console.error('Error triggering generation:', error)
-      alert('Error triggering generation. Check console for details.')
-    } finally {
-      setGenerating(false)
-    }
+    )
   }
 
   const togglePublishStatus = async (fileId: string, currentStatus: boolean, fileName: string) => {

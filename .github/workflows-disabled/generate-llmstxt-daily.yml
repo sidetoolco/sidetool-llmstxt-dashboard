@@ -45,10 +45,8 @@ jobs:
           # Generate LLMs.txt with focus on blog content
           # Using higher max-urls to ensure all blog posts are captured
           python generate_sidetool_llmstxt.py \
-            https://www.sidetool.co \
             --max-urls 150 \
-            --output-dir ./public \
-            --focus-paths "/blog,/docs,/features,/pricing,/about"
+            --output-dir ./public
           
           # Verify files were created
           if [ ! -f "./public/llms.txt" ] || [ ! -f "./public/llms-full.txt" ]; then
