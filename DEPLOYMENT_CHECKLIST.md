@@ -9,6 +9,7 @@ Required variables:
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`
 - [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - [ ] `SUPABASE_SERVICE_ROLE_KEY`
+- [ ] `OPENAI_API_KEY` (required for AI generation)
 - [ ] `RESEND_API_KEY` (optional, for email notifications)
 
 ### 2. Dashboard Features Implemented
@@ -30,7 +31,8 @@ Required variables:
 
 ### 4. API Endpoints
 - [x] `/api/supabase-files` - Load files from database
-- [x] `/api/generate-direct` - Trigger manual generation
+- [x] `/api/generate-ai` - AI-powered file generation (NEW)
+- [x] `/api/generate-direct` - Fallback generation without AI
 - [x] `/api/debug-env` - Check environment configuration
 - [x] `/api/send-email-notification` - Send email notifications
 
@@ -102,3 +104,27 @@ Required variables:
 - [ ] Generate Now button works
 - [ ] Sidetool branding is visible
 - [ ] Design looks authentic and professional
+
+## Generate Now Workflow
+
+The "Generate Now" button now follows this workflow:
+
+1. **Primary: AI-Powered Generation** (`/api/generate-ai`)
+   - Uses OpenAI GPT-4 to generate dynamic content
+   - Creates multiple files: main llms.txt + topic-specific files
+   - Saves to Supabase database and storage
+   - Shows success message with file count
+
+2. **Fallback: Edge Function** (`/api/supabase-files` POST)
+   - Triggered if OpenAI API key is not configured
+   - Calls Supabase Edge Function `generate-llms-daily`
+   - Uses predefined blog post data
+
+3. **Emergency Fallback** (`/api/generate-direct`)
+   - Simple generation without external dependencies
+   - Creates basic llms.txt file
+
+### Required for AI Generation:
+- Set `OPENAI_API_KEY` in Vercel environment variables
+- Uses GPT-4 for high-quality content generation
+- Automatically creates topic-specific files

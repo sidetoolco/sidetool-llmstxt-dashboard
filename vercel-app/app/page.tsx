@@ -94,20 +94,81 @@ export default function Dashboard() {
   const triggerGeneration = async () => {
     setGenerating(true)
     try {
-      const response = await fetch('/api/generate-direct', {
+      // First try the AI-powered endpoint
+      const response = await fetch('/api/generate-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'manual' })
+        headers: { 'Content-Type': 'application/json' }
       })
       
-      const result = await response.json()
-      if (result.success) {
-        setTimeout(() => loadDailyFiles(), 2000)
+      if (!response.ok) {
+        const error = await response.json()
+        
+        // If OpenAI key is missing, fall back to Edge Function
+        if (error.error && error.error.includes('OpenAI')) {
+          console.log('Falling back to Edge Function...')
+          const fallbackResponse = await fetch('/api/supabase-files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          
+          if (!fallbackResponse.ok) {
+            const fallbackError = await fallbackResponse.json()
+            throw new Error(fallbackError.details || fallbackError.error || 'Generation failed')
+          }
+          
+          const fallbackResult = await fallbackResponse.json()
+          handleGenerationSuccess(fallbackResult, 'Edge Function')
+          return
+        }
+        
+        throw new Error(error.details || error.error || 'Generation failed')
       }
-    } catch (error) {
+      
+      const result = await response.json()
+      handleGenerationSuccess(result, 'AI')
+      
+    } catch (error: any) {
       console.error('Generation error:', error)
+      
+      // Show error message
+      const errorDiv = document.createElement('div')
+      errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50'
+      errorDiv.textContent = `Error: ${error.message}`
+      document.body.appendChild(errorDiv)
+      
+      // Remove after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorDiv)
+      }, 5000)
     } finally {
       setGenerating(false)
+    }
+  }
+  
+  const handleGenerationSuccess = (result: any, method: string) => {
+    console.log(`Generation triggered via ${method}:`, result)
+    
+    if (result.success) {
+      // Show success message with file count
+      const successDiv = document.createElement('div')
+      successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg z-50'
+      
+      const filesCreated = result.files_created || result.file_count || 1
+      successDiv.innerHTML = `
+        <div class="font-medium">Files generated successfully!</div>
+        <div class="text-sm opacity-90">${filesCreated} files created via ${method}. Refreshing...</div>
+      `
+      document.body.appendChild(successDiv)
+      
+      // Remove after 4 seconds
+      setTimeout(() => {
+        if (document.body.contains(successDiv)) {
+          document.body.removeChild(successDiv)
+        }
+      }, 4000)
+      
+      // Wait a bit for database to update, then refresh
+      setTimeout(() => loadDailyFiles(), 3000)
     }
   }
 
@@ -165,13 +226,23 @@ export default function Dashboard() {
               <button
                 onClick={triggerGeneration}
                 disabled={generating}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                   generating
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-900 text-white hover:bg-gray-800'
                 }`}
               >
-                {generating ? 'Generating...' : 'Generate Now'}
+                {generating ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Generating with AI...</span>
+                  </>
+                ) : (
+                  'Generate Now'
+                )}
               </button>
             </div>
           </div>
