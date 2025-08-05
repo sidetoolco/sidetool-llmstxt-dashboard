@@ -102,8 +102,8 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="https://sidetool-llmstxt-dashboard.vercel.app" class="cta-button">View Dashboard</a>
-        <a href="https://github.com/sidetoolco/sidetool-llmstxt-dashboard" class="cta-button secondary">View Repository</a>
+        <a href="https://gso.sidetool.co" class="cta-button">View Dashboard</a>
+        <a href="https://github.com/sidetoolco/sidetool-llmstxt-generator" class="cta-button secondary">View Repository</a>
       </div>
 
       ${collectionFiles.length > 0 ? `
@@ -214,7 +214,7 @@ export async function POST(request: Request) {
     
     const { data, error } = await resend.emails.send({
       from: 'LLMs.txt Generator <onboarding@resend.dev>',
-      to: ['hi@sidetool.co'],
+      to: ['ed@sidetool.co'],
       subject: `🚀 New LLMs.txt Files Generated - ${total_files} files ready`,
       html: emailContent,
     })

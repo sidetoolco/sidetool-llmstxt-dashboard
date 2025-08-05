@@ -12,13 +12,20 @@ interface FileWithStatus {
   generated_at?: string
   published_at?: string | null
   published_url?: string | null
+  storageUrl?: string
 }
 
 interface DailyFiles {
   date: string
-  files: FileWithStatus[]
-  totalSize: number
-  source?: string
+  generatedAt: string
+  generationId: string
+  source: string
+  files: Record<string, any>
+  totalSize?: number
+  stats?: {
+    totalFiles: number
+    categories: Record<string, number>
+  }
 }
 
 export default function Dashboard() {
@@ -38,6 +45,7 @@ export default function Dashboard() {
       }
       
       const data = await response.json()
+      console.log('Loaded data:', data)
       setDailyFiles(data)
     } catch (error: any) {
       console.error('Error loading files:', error)
@@ -69,7 +77,7 @@ export default function Dashboard() {
     }
   }
 
-  const downloadFile = (file: FileWithStatus) => {
+  const downloadFile = (file: any) => {
     if (!file.content) return
     
     const blob = new Blob([file.content], { type: 'text/plain' })
@@ -103,285 +111,258 @@ export default function Dashboard() {
     }
   }
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      collection: 'bg-purple-100 text-purple-800 border-purple-200',
-      topic: 'bg-blue-100 text-blue-800 border-blue-200',
-      individual: 'bg-green-100 text-green-800 border-green-200',
-      default: 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-    return colors[category] || colors.default
-  }
+  // Convert files object to array for display
+  const filesArray = dailyFiles?.files 
+    ? Object.entries(dailyFiles.files).map(([key, file]) => ({
+        ...file,
+        id: file.id || key,
+        name: file.name || key
+      }))
+    : []
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'collection':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        )
-      case 'topic':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-          </svg>
-        )
-      default:
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        )
-    }
-  }
+  // Calculate total size if not provided
+  const totalSize = dailyFiles?.totalSize || filesArray.reduce((sum, file) => sum + (file.size || 0), 0)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-pulse"></div>
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute inset-0"></div>
-          </div>
-          <p className="mt-4 text-gray-600 font-medium">Loading your files...</p>
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading files...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white/70 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">LLMs.txt Dashboard</h1>
-                <p className="text-sm text-gray-600">AI-optimized content files for Sidetool</p>
+            <div className="flex items-center gap-4">
+              {/* Sidetool Logo */}
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">S</span>
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">Sidetool GSO</h1>
+                  <p className="text-xs text-gray-500">Generated Semantic Objects</p>
+                </div>
               </div>
             </div>
             
-            <button
-              onClick={triggerGeneration}
-              disabled={generating}
-              className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
-                generating
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105'
-              }`}
-            >
-              {generating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Generate Now</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-4">
+              <a 
+                href="https://sidetool.co" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                sidetool.co →
+              </a>
+              <button
+                onClick={triggerGeneration}
+                disabled={generating}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  generating
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
+              >
+                {generating ? 'Generating...' : 'Generate Now'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        {dailyFiles && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
+        {/* Status Bar */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6 text-sm">
+              <div>
+                <span className="text-gray-500">Files:</span>
+                <span className="ml-2 font-medium text-gray-900">{filesArray.length}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{dailyFiles.files.length}</p>
-              <p className="text-sm text-gray-600 mt-1">Files Generated</p>
+              <div>
+                <span className="text-gray-500">Total Size:</span>
+                <span className="ml-2 font-medium text-gray-900">{(totalSize / 1024).toFixed(1)} KB</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Updated:</span>
+                <span className="ml-2 font-medium text-gray-900">
+                  {dailyFiles ? new Date(dailyFiles.generatedAt || dailyFiles.date).toLocaleString() : '-'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Source:</span>
+                <span className="ml-2 font-medium text-gray-900">{dailyFiles?.source || 'Unknown'}</span>
+              </div>
             </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                  </svg>
-                </div>
-                <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">Size</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{(dailyFiles.totalSize / 1024).toFixed(1)}</p>
-              <p className="text-sm text-gray-600 mt-1">Total KB</p>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Latest</span>
-              </div>
-              <p className="text-lg font-bold text-gray-900">{new Date(dailyFiles.date).toLocaleDateString()}</p>
-              <p className="text-sm text-gray-600 mt-1">{new Date(dailyFiles.date).toLocaleTimeString()}</p>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Status</span>
-              </div>
-              <p className="text-lg font-bold text-gray-900 text-green-600">Ready</p>
-              <p className="text-sm text-gray-600 mt-1">All files available</p>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Live</span>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Files Grid */}
-        {dailyFiles && dailyFiles.files.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {dailyFiles.files.map(file => (
-              <div
-                key={file.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-gray-200"
-              >
-                {/* File Header */}
-                <div className="p-6 border-b border-gray-100">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-lg mb-2 flex items-center gap-2">
-                        {getCategoryIcon(file.category)}
-                        {file.name}
-                      </h3>
-                      {file.description && (
-                        <p className="text-sm text-gray-600 leading-relaxed">{file.description}</p>
-                      )}
-                    </div>
-                  </div>
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm">
+              <p className="text-blue-900 font-medium mb-1">About LLMs.txt Files</p>
+              <p className="text-blue-700">
+                These files help AI systems understand Sidetool's services and content. 
+                Files are generated daily at 3 AM UTC and include blog posts, service descriptions, and technical capabilities.
+                Place them at your website root (e.g., sidetool.co/llms.txt) for AI discovery.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Files List */}
+        {filesArray.length > 0 ? (
+          <div className="space-y-4">
+            {/* Group files by category */}
+            {['collection', 'topic', 'individual'].map(category => {
+              const categoryFiles = filesArray.filter(file => file.category === category)
+              if (categoryFiles.length === 0) return null
+
+              return (
+                <div key={category} className="space-y-3">
+                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    {category === 'collection' ? 'Main Collections' : 
+                     category === 'topic' ? 'Topic Collections' : 
+                     'Individual Files'}
+                  </h2>
                   
-                  <div className="flex items-center gap-2 mt-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(file.category)}`}>
-                      {file.category}
-                    </span>
-                    <span className="text-xs text-gray-500">•</span>
-                    <span className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
-                    {file.published_at && (
-                      <>
-                        <span className="text-xs text-gray-500">•</span>
-                        <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          Published
-                        </span>
-                      </>
-                    )}
+                  <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+                    {categoryFiles.map(file => (
+                      <div key={file.id} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {file.name}
+                              </h3>
+                              <span className="text-xs text-gray-500">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </span>
+                              {file.published && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  Published
+                                </span>
+                              )}
+                            </div>
+                            {file.description && (
+                              <p className="text-sm text-gray-600 mb-2">{file.description}</p>
+                            )}
+                            
+                            {/* Preview Toggle */}
+                            {file.content && (
+                              <button
+                                onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}
+                                className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                              >
+                                <svg 
+                                  className={`w-3 h-3 transform transition-transform ${expandedFile === file.id ? 'rotate-90' : ''}`}
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                                {expandedFile === file.id ? 'Hide' : 'Show'} preview
+                              </button>
+                            )}
+                            
+                            {/* Content Preview */}
+                            {expandedFile === file.id && file.content && (
+                              <pre className="mt-3 p-3 bg-gray-50 rounded border border-gray-200 text-xs text-gray-600 font-mono overflow-x-auto max-h-48 overflow-y-auto">
+                                {file.content.substring(0, 500)}
+                                {file.content.length > 500 && '\n\n... (truncated)'}
+                              </pre>
+                            )}
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 ml-4">
+                            {file.storageUrl && (
+                              <a
+                                href={file.storageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-gray-400 hover:text-gray-600"
+                                title="View in storage"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            )}
+                            <button
+                              onClick={() => copyToClipboard(file.content || '', file.id)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+                                copiedFile === file.id
+                                  ? 'bg-green-50 text-green-700 border-green-300'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {copiedFile === file.id ? 'Copied!' : 'Copy'}
+                            </button>
+                            <button
+                              onClick={() => downloadFile(file)}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Content Preview */}
-                {file.content && (
-                  <div className="bg-gray-50 p-4">
-                    <button
-                      onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}
-                      className="w-full text-left text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center justify-between"
-                    >
-                      <span>Preview Content</span>
-                      <svg 
-                        className={`w-4 h-4 transform transition-transform ${expandedFile === file.id ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {expandedFile === file.id && (
-                      <pre className="mt-3 text-xs text-gray-600 font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-64 overflow-y-auto">
-                        {file.content.substring(0, 1000)}
-                        {file.content.length > 1000 && '\n\n... (truncated)'}
-                      </pre>
-                    )}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="p-4 bg-gray-50 flex gap-2">
-                  <button
-                    onClick={() => copyToClipboard(file.content || '', file.id)}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                      copiedFile === file.id
-                        ? 'bg-green-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                    }`}
-                  >
-                    {copiedFile === file.id ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span>Copy Content</span>
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={() => downloadFile(file)}
-                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium text-sm hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Download</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
-            <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-xl text-gray-600 font-medium mb-2">No files generated yet</p>
-            <p className="text-gray-500 mb-6">Click the "Generate Now" button to create your LLMs.txt files</p>
+            <p className="text-gray-600 mb-2">No files found</p>
+            <p className="text-sm text-gray-500 mb-4">Generate files to see them here</p>
             <button
               onClick={triggerGeneration}
-              disabled={generating}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800"
             >
-              Generate Your First Files
+              Generate Files
             </button>
           </div>
         )}
 
         {/* Footer */}
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>
-            Files are generated daily at 3 AM UTC • 
-            <a href="/api/debug-env" className="text-blue-600 hover:underline ml-1">Check Environment</a>
-          </p>
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <div>
+              <p>Generated Semantic Objects (GSO) by Sidetool</p>
+              <p className="text-xs mt-1">
+                Automated daily at 3 AM UTC • 
+                <a href="/api/debug-env" className="text-blue-600 hover:underline ml-1">Debug</a> • 
+                <a href="https://github.com/sidetoolco" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">GitHub</a>
+              </p>
+            </div>
+            <div className="text-right">
+              <p>Need help?</p>
+              <a href="mailto:hello@sidetool.co" className="text-blue-600 hover:underline">hello@sidetool.co</a>
+            </div>
+          </div>
         </div>
       </main>
     </div>
