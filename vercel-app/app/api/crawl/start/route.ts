@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { addJobToQueue, rateLimiter } from '@/lib/redis'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,6 +21,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { message: 'Firecrawl API key not configured' },
         { status: 500 }
+      )
+    }
+    
+    // Check rate limit
+    const { success } = await rateLimiter.limit(user_id)
+    if (!success) {
+      return NextResponse.json(
+        { message: 'Too many requests. Please wait a moment.' },
+        { status: 429 }
       )
     }
     
@@ -125,179 +135,28 @@ export async function POST(request: Request) {
         .from('crawled_urls')
         .insert(urlRecords)
       
-      // Update job status to crawling
+      // Add URLs to Redis queue
+      console.log(`Adding ${urls.length} URLs to queue for job ${job.id}`)
+      
+      try {
+        await addJobToQueue(job.id, urls)
+      } catch (redisError) {
+        console.error('Redis error:', redisError)
+        // Fall back to marking job as ready without queue
+      }
+      
+      // Update job status
       await supabase
         .from('crawl_jobs')
         .update({
-          status: 'crawling',
-          total_urls: urls.length
-        })
-        .eq('id', job.id)
-      
-      // Limit to first 3 URLs to avoid timeout
-      const urlsToProcess = urls.slice(0, 3)
-      console.log(`Starting content crawling for ${urlsToProcess.length} URLs (limited from ${urls.length} total)`)
-      const crawledUrls = []
-      const openaiApiKey = process.env.OPENAI_API_KEY
-      
-      // Process URLs one at a time to avoid timeout
-      for (const url of urlsToProcess) {
-        try {
-          console.log(`Scraping ${url}`)
-          
-          // Skip OpenAI for now to save time
-          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${firecrawlApiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              url,
-              formats: ['markdown']
-            })
-          })
-          
-          if (!scrapeResponse.ok) {
-            console.error(`Failed to scrape ${url}`)
-            continue
-          }
-          
-          const scrapeData = await scrapeResponse.json()
-          const markdown = scrapeData.data?.markdown || ''
-          const pageTitle = scrapeData.data?.metadata?.title || new URL(url).pathname.slice(1) || 'Untitled'
-          const description = scrapeData.data?.metadata?.description || 'No description available'
-          
-          // Update URL record with content
-          await supabase
-            .from('crawled_urls')
-            .update({
-              status: 'completed',
-              title: pageTitle.substring(0, 100),
-              description: description.substring(0, 200),
-              content: markdown.substring(0, 50000), // Limit content size
-              crawled_at: new Date().toISOString()
-            })
-            .eq('job_id', job.id)
-            .eq('url', url)
-          
-          crawledUrls.push({
-            url,
-            title: pageTitle,
-            description,
-            content: markdown
-          })
-          
-          // Update progress
-          await supabase
-            .from('crawl_jobs')
-            .update({
-              urls_crawled: crawledUrls.length,
-              urls_processed: crawledUrls.length
-            })
-            .eq('id', job.id)
-            
-        } catch (error) {
-          console.error(`Error crawling ${url}:`, error)
-          await supabase
-            .from('crawled_urls')
-            .update({
-              status: 'failed',
-              error_message: error.message
-            })
-            .eq('job_id', job.id)
-            .eq('url', url)
-        }
-      }
-      
-      console.log(`Crawled ${crawledUrls.length} URLs successfully`)
-      
-      // Generate llms.txt (index with titles and descriptions)
-      let llmsTxtContent = `# ${domain} - SideGSO Files\n\n`
-      llmsTxtContent += `Generated: ${new Date().toISOString()}\n`
-      llmsTxtContent += `Total Pages: ${crawledUrls.length}\n\n`
-      llmsTxtContent += `## Pages\n\n`
-      
-      for (const page of crawledUrls) {
-        llmsTxtContent += `- [${page.title}](${page.url}): ${page.description}\n`
-      }
-      
-      // Generate llms-full.txt (complete content)
-      let llmsFullTxtContent = `# ${domain} - Complete Content\n\n`
-      llmsFullTxtContent += `Generated: ${new Date().toISOString()}\n`
-      llmsFullTxtContent += `Total Pages: ${crawledUrls.length}\n\n`
-      llmsFullTxtContent += `---\n\n`
-      
-      for (const page of crawledUrls) {
-        llmsFullTxtContent += `## ${page.url}\n\n`
-        llmsFullTxtContent += `**Title:** ${page.title}\n`
-        llmsFullTxtContent += `**Description:** ${page.description}\n\n`
-        llmsFullTxtContent += `### Content\n\n`
-        llmsFullTxtContent += page.content || 'No content available'
-        llmsFullTxtContent += `\n\n---\n\n`
-      }
-      
-      // Store the generated files with content
-      console.log('Storing llms.txt file for job:', job.id)
-      console.log('llms.txt size:', new TextEncoder().encode(llmsTxtContent).length, 'bytes')
-      
-      const { data: file1, error: fileError1 } = await supabase
-        .from('generated_files')
-        .insert({
-          job_id: job.id,
-          file_type: 'llms.txt',
-          file_path: `${domain}/llms.txt`,
-          file_size: new TextEncoder().encode(llmsTxtContent).length,
-          content: llmsTxtContent,
-          download_url: ''
-        })
-        .select()
-        .single()
-      
-      if (fileError1) {
-        console.error('Error storing llms.txt:', fileError1)
-        throw new Error(`Failed to store llms.txt: ${fileError1.message}`)
-      } else {
-        console.log('Successfully stored llms.txt with id:', file1?.id)
-      }
-      
-      // Store llms-full.txt with complete content
-      console.log('Storing llms-full.txt file for job:', job.id)
-      console.log('llms-full.txt size:', new TextEncoder().encode(llmsFullTxtContent).length, 'bytes')
-      
-      const { data: file2, error: fileError2 } = await supabase
-        .from('generated_files')
-        .insert({
-          job_id: job.id,
-          file_type: 'llms-full.txt',
-          file_path: `${domain}/llms-full.txt`,
-          file_size: new TextEncoder().encode(llmsFullTxtContent).length,
-          content: llmsFullTxtContent,
-          download_url: ''
-        })
-        .select()
-        .single()
-      
-      if (fileError2) {
-        console.error('Error storing llms-full.txt:', fileError2)
-        throw new Error(`Failed to store llms-full.txt: ${fileError2.message}`)
-      } else {
-        console.log('Successfully stored llms-full.txt with id:', file2?.id)
-      }
-      
-      // Update job with final status
-      await supabase
-        .from('crawl_jobs')
-        .update({
-          status: 'completed',
+          status: 'processing',
           total_urls: urls.length,
-          urls_crawled: crawledUrls.length,
-          urls_processed: crawledUrls.length,
-          completed_at: new Date().toISOString()
+          urls_crawled: 0,
+          urls_processed: 0
         })
         .eq('id', job.id)
       
-      console.log(`Job ${job.id} completed successfully with ${crawledUrls.length} pages crawled`)
+      console.log(`Job ${job.id} created with ${urls.length} URLs queued for processing`)
         
     } catch (error: any) {
       console.error('Mapping error:', error)

@@ -12,6 +12,8 @@
     "@sentry/nextjs": "^10.1.0",
     "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/supabase-js": "^2.39.0",
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.3",
     "clsx": "^2.1.0",
     "framer-motion": "^10.16.16",
     "jszip": "^3.10.1",
