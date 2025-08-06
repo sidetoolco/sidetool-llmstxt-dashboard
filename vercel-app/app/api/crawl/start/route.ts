@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       const mapData = await mapResponse.json()
       const urls = mapData.links || []
       
-      console.log(`Found ${urls.length} URLs`)
+      console.log(`Found ${urls.length} URLs for ${domain}`)
       
       if (urls.length === 0) {
         throw new Error('No URLs found to crawl')
