@@ -201,6 +201,33 @@ export async function POST(request: Request) {
         .eq('id', job.id)
       
       console.log(`Job ${job.id} created with ${urls.length} URLs queued for processing`)
+      
+      // If Redis is configured, trigger initial processing
+      if (queued > 0) {
+        // Trigger processing of first batch
+        console.log('Triggering initial batch processing...')
+        
+        // Process first 5 URLs immediately
+        for (let i = 0; i < Math.min(5, urls.length); i++) {
+          try {
+            const processResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://gso.sidetool.co'}/api/crawl/process`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ job_id: job.id })
+            })
+            
+            const result = await processResponse.json()
+            console.log(`Process response ${i + 1}:`, result.message)
+            
+            // If no more URLs, stop
+            if (!result.continue) break
+          } catch (err) {
+            console.error('Error triggering process:', err)
+          }
+        }
+      }
         
     } catch (error: any) {
       console.error('Mapping error:', error)

@@ -309,6 +309,30 @@ export default function Dashboard() {
                 <div className="mt-2 text-red-600">{activeJob.error_message}</div>
               )}
             </div>
+            
+            {/* Continue Processing Button for stuck jobs */}
+            {activeJob.status === 'processing' && (
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/crawl/process-batch', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ job_id: activeJob.id, batch_size: 5 })
+                    })
+                    const result = await response.json()
+                    console.log('Processing triggered:', result)
+                    // Refresh job status
+                    fetchJobs()
+                  } catch (error) {
+                    console.error('Error triggering processing:', error)
+                  }
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Continue Processing
+              </button>
+            )}
           </div>
         )}
 
