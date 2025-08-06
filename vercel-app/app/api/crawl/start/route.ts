@@ -151,21 +151,32 @@ async function startCrawlProcess(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
     
-    const mapResponse = await fetch('https://api.firecrawl.dev/v1/map', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        url: `https://${domain}`,
-        includeSubdomains: false,
-        limit: maxPages
-      }),
-      signal: controller.signal
-    })
-    
-    clearTimeout(timeoutId)
+    let mapResponse
+    try {
+      console.log('Making Firecrawl API request...')
+      mapResponse = await fetch('https://api.firecrawl.dev/v1/map', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: `https://${domain}`,
+          includeSubdomains: false,
+          limit: maxPages
+        }),
+        signal: controller.signal
+      })
+      console.log('Firecrawl API request completed')
+    } catch (fetchError: any) {
+      console.error('Firecrawl fetch error:', fetchError)
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Firecrawl API request timed out after 25 seconds')
+      }
+      throw new Error(`Failed to connect to Firecrawl: ${fetchError.message}`)
+    } finally {
+      clearTimeout(timeoutId)
+    }
     
     console.log(`Firecrawl response status: ${mapResponse.status}`)
     
