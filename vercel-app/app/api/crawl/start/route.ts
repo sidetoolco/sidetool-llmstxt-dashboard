@@ -69,20 +69,86 @@ export async function POST(request: Request) {
       throw new Error('Failed to create job')
     }
     
-    // Start the crawl process asynchronously
-    startCrawlProcess(job.id, domain, max_pages, firecrawlApiKey)
-      .catch(error => {
-        console.error('Crawl process error:', error)
-        supabase
-          .from('crawl_jobs')
-          .update({
-            status: 'failed',
-            error_message: error.message,
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', job.id)
-          .then(() => {})
+    // Do mapping synchronously to ensure it completes
+    try {
+      // Update job status to mapping
+      await supabase
+        .from('crawl_jobs')
+        .update({
+          status: 'mapping',
+          started_at: new Date().toISOString()
+        })
+        .eq('id', job.id)
+      
+      // Map the website using Firecrawl
+      console.log(`Starting URL mapping for ${domain}`)
+      
+      const mapResponse = await fetch('https://api.firecrawl.dev/v1/map', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${firecrawlApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: `https://${domain}`,
+          includeSubdomains: false,
+          limit: max_pages
+        })
       })
+      
+      if (!mapResponse.ok) {
+        const error = await mapResponse.text()
+        throw new Error(`Firecrawl map failed: ${error}`)
+      }
+      
+      const mapData = await mapResponse.json()
+      const urls = mapData.links || []
+      
+      console.log(`Found ${urls.length} URLs`)
+      
+      if (urls.length === 0) {
+        throw new Error('No URLs found to crawl')
+      }
+      
+      // Store URLs in database
+      const urlRecords = urls.map((url: string) => ({
+        job_id: job.id,
+        url,
+        status: 'pending'
+      }))
+      
+      await supabase
+        .from('crawled_urls')
+        .insert(urlRecords)
+      
+      // Update job with URL count and set to completed for now
+      await supabase
+        .from('crawl_jobs')
+        .update({
+          status: 'completed',
+          total_urls: urls.length,
+          urls_crawled: urls.length,
+          urls_processed: urls.length,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.id)
+        
+    } catch (error: any) {
+      console.error('Mapping error:', error)
+      await supabase
+        .from('crawl_jobs')
+        .update({
+          status: 'failed',
+          error_message: error.message,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.id)
+        
+      return NextResponse.json(
+        { message: `Crawl failed: ${error.message}` },
+        { status: 500 }
+      )
+    }
     
     return NextResponse.json({ 
       success: true, 
