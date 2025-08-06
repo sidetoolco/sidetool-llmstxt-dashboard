@@ -86,6 +86,17 @@ export default function Dashboard() {
     setActiveJob(inProgressJob || null)
   }
 
+  // Poll for active job updates
+  useEffect(() => {
+    if (!activeJob) return
+
+    const interval = setInterval(() => {
+      loadJobs()
+    }, 3000) // Poll every 3 seconds
+
+    return () => clearInterval(interval)
+  }, [activeJob])
+
   const validateDomain = (input: string): string | null => {
     // Remove protocol if present
     let cleanDomain = input.replace(/^https?:\/\//, '')
@@ -323,7 +334,7 @@ export default function Dashboard() {
                     const result = await response.json()
                     console.log('Processing triggered:', result)
                     // Refresh job status
-                    fetchJobs()
+                    loadJobs()
                   } catch (error) {
                     console.error('Error triggering processing:', error)
                   }
