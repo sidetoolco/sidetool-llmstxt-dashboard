@@ -110,36 +110,181 @@ export async function POST(request: Request) {
         throw new Error('No URLs found to crawl')
       }
       
-      // Store URLs in database with basic info
+      // Store URLs in database as pending for crawling
       const urlRecords = urls.map((url: string) => ({
         job_id: job.id,
         url,
-        status: 'completed',
-        title: new URL(url).pathname.slice(1) || 'Home',
-        description: `Page from ${domain}`,
-        content: '',
-        crawled_at: new Date().toISOString()
+        status: 'pending',
+        title: null,
+        description: null,
+        content: null,
+        crawled_at: null
       }))
       
       await supabase
         .from('crawled_urls')
         .insert(urlRecords)
       
-      // Generate simple llms.txt files from URLs
-      let llmsTxtContent = `# ${domain} - SideGSO Files\n\n`
-      llmsTxtContent += `Generated: ${new Date().toISOString()}\n`
-      llmsTxtContent += `Total Pages: ${urls.length}\n\n`
-      llmsTxtContent += `## Pages\n\n`
+      // Update job status to crawling
+      await supabase
+        .from('crawl_jobs')
+        .update({
+          status: 'crawling',
+          total_urls: urls.length
+        })
+        .eq('id', job.id)
       
-      for (const url of urls) {
-        const path = new URL(url).pathname
-        const title = path.slice(1).replace(/[_-]/g, ' ') || 'Home'
-        llmsTxtContent += `- [${title}](${url})\n`
+      // Crawl each URL for content (process up to 5 at a time)
+      console.log(`Starting content crawling for ${urls.length} URLs`)
+      const crawledUrls = []
+      const openaiApiKey = process.env.OPENAI_API_KEY
+      
+      for (let i = 0; i < urls.length; i += 5) {
+        const batch = urls.slice(i, i + 5)
+        const batchPromises = batch.map(async (url: string) => {
+          try {
+            console.log(`Scraping ${url}`)
+            
+            // Scrape the URL using Firecrawl
+            const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${firecrawlApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                url,
+                formats: ['markdown', 'html']
+              })
+            })
+            
+            if (!scrapeResponse.ok) {
+              console.error(`Failed to scrape ${url}:`, await scrapeResponse.text())
+              return null
+            }
+            
+            const scrapeData = await scrapeResponse.json()
+            const markdown = scrapeData.data?.markdown || ''
+            const html = scrapeData.data?.html || ''
+            const pageTitle = scrapeData.data?.metadata?.title || new URL(url).pathname.slice(1) || 'Untitled'
+            
+            // Generate AI summary if OpenAI is configured
+            let title = pageTitle.substring(0, 50)
+            let description = scrapeData.data?.metadata?.description || 'No description available'
+            
+            if (openaiApiKey && markdown) {
+              try {
+                const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                      {
+                        role: 'system',
+                        content: 'Generate a concise title (3-4 words) and description (9-10 words) for this webpage content. Format: Title: [title]\nDescription: [description]'
+                      },
+                      {
+                        role: 'user',
+                        content: markdown.substring(0, 2000)
+                      }
+                    ],
+                    temperature: 0.3,
+                    max_tokens: 50
+                  })
+                })
+                
+                if (summaryResponse.ok) {
+                  const summaryData = await summaryResponse.json()
+                  const output = summaryData.choices[0].message.content
+                  const lines = output.split('\n')
+                  title = lines[0]?.replace('Title: ', '').trim() || title
+                  description = lines[1]?.replace('Description: ', '').trim() || description
+                }
+              } catch (err) {
+                console.error('Summary generation error:', err)
+              }
+            }
+            
+            // Update URL record with content
+            await supabase
+              .from('crawled_urls')
+              .update({
+                status: 'completed',
+                title,
+                description,
+                content: markdown,
+                crawled_at: new Date().toISOString()
+              })
+              .eq('job_id', job.id)
+              .eq('url', url)
+            
+            return {
+              url,
+              title,
+              description,
+              content: markdown
+            }
+          } catch (error) {
+            console.error(`Error crawling ${url}:`, error)
+            await supabase
+              .from('crawled_urls')
+              .update({
+                status: 'failed',
+                error_message: error.message
+              })
+              .eq('job_id', job.id)
+              .eq('url', url)
+            return null
+          }
+        })
+        
+        const batchResults = await Promise.all(batchPromises)
+        crawledUrls.push(...batchResults.filter(r => r !== null))
+        
+        // Update progress
+        await supabase
+          .from('crawl_jobs')
+          .update({
+            urls_crawled: crawledUrls.length,
+            urls_processed: crawledUrls.length
+          })
+          .eq('id', job.id)
       }
       
-      // Store the generated file with content
+      console.log(`Crawled ${crawledUrls.length} URLs successfully`)
+      
+      // Generate llms.txt (index with titles and descriptions)
+      let llmsTxtContent = `# ${domain} - SideGSO Files\n\n`
+      llmsTxtContent += `Generated: ${new Date().toISOString()}\n`
+      llmsTxtContent += `Total Pages: ${crawledUrls.length}\n\n`
+      llmsTxtContent += `## Pages\n\n`
+      
+      for (const page of crawledUrls) {
+        llmsTxtContent += `- [${page.title}](${page.url}): ${page.description}\n`
+      }
+      
+      // Generate llms-full.txt (complete content)
+      let llmsFullTxtContent = `# ${domain} - Complete Content\n\n`
+      llmsFullTxtContent += `Generated: ${new Date().toISOString()}\n`
+      llmsFullTxtContent += `Total Pages: ${crawledUrls.length}\n\n`
+      llmsFullTxtContent += `---\n\n`
+      
+      for (const page of crawledUrls) {
+        llmsFullTxtContent += `## ${page.url}\n\n`
+        llmsFullTxtContent += `**Title:** ${page.title}\n`
+        llmsFullTxtContent += `**Description:** ${page.description}\n\n`
+        llmsFullTxtContent += `### Content\n\n`
+        llmsFullTxtContent += page.content || 'No content available'
+        llmsFullTxtContent += `\n\n---\n\n`
+      }
+      
+      // Store the generated files with content
       console.log('Storing llms.txt file for job:', job.id)
-      console.log('Content preview:', llmsTxtContent.substring(0, 200))
+      console.log('llms.txt size:', new TextEncoder().encode(llmsTxtContent).length, 'bytes')
       
       const { data: file1, error: fileError1 } = await supabase
         .from('generated_files')
@@ -161,8 +306,9 @@ export async function POST(request: Request) {
         console.log('Successfully stored llms.txt with id:', file1?.id)
       }
       
-      // Create llms-full.txt (same as llms.txt for now since we don't have content)
+      // Store llms-full.txt with complete content
       console.log('Storing llms-full.txt file for job:', job.id)
+      console.log('llms-full.txt size:', new TextEncoder().encode(llmsFullTxtContent).length, 'bytes')
       
       const { data: file2, error: fileError2 } = await supabase
         .from('generated_files')
@@ -170,8 +316,8 @@ export async function POST(request: Request) {
           job_id: job.id,
           file_type: 'llms-full.txt',
           file_path: `${domain}/llms-full.txt`,
-          file_size: new TextEncoder().encode(llmsTxtContent).length,
-          content: llmsTxtContent,
+          file_size: new TextEncoder().encode(llmsFullTxtContent).length,
+          content: llmsFullTxtContent,
           download_url: ''
         })
         .select()
@@ -184,17 +330,19 @@ export async function POST(request: Request) {
         console.log('Successfully stored llms-full.txt with id:', file2?.id)
       }
       
-      // Update job with URL count and set to completed
+      // Update job with final status
       await supabase
         .from('crawl_jobs')
         .update({
           status: 'completed',
           total_urls: urls.length,
-          urls_crawled: urls.length,
-          urls_processed: urls.length,
+          urls_crawled: crawledUrls.length,
+          urls_processed: crawledUrls.length,
           completed_at: new Date().toISOString()
         })
         .eq('id', job.id)
+      
+      console.log(`Job ${job.id} completed successfully with ${crawledUrls.length} pages crawled`)
         
     } catch (error: any) {
       console.error('Mapping error:', error)
