@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     // Check if user exists
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, subscription_tier, api_key_firecrawl')
+      .select('id, email, name')
       .eq('id', user_id)
       .single()
     
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
     
     // Start the crawl process asynchronously
-    startCrawlProcess(job.id, domain, max_pages, user.api_key_firecrawl || firecrawlApiKey)
+    startCrawlProcess(job.id, domain, max_pages, firecrawlApiKey)
       .catch(error => {
         console.error('Crawl process error:', error)
         // Update job status to failed

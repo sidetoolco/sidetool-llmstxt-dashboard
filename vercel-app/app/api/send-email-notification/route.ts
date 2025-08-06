@@ -102,7 +102,7 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="https://gso.sidetool.co" class="cta-button">View Dashboard</a>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://sidegso.vercel.app'}" class="cta-button">View Dashboard</a>
         <a href="https://github.com/sidetoolco/sidegso" class="cta-button secondary">View Repository</a>
       </div>
 
