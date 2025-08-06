@@ -74,11 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (!error && data.user) {
         // Create user profile in our custom users table
-        await supabase.from('users').insert({
+        await supabase.from('users').upsert({
           id: data.user.id,
           email,
           name,
           auth_provider: 'email'
+        }, {
+          onConflict: 'id'
         })
       }
       
