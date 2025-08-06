@@ -1,441 +1,303 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/components/Auth/AuthProvider'
 
-interface FileWithStatus {
-  id: string
-  name: string
-  size: number
-  content?: string
-  category: string
-  description?: string
-  generated_at?: string
-  published_at?: string | null
-  published_url?: string | null
-  storageUrl?: string
-}
-
-interface DailyFiles {
-  date: string
-  generatedAt: string
-  generationId: string
-  source: string
-  files: Record<string, any>
-  totalSize?: number
-  stats?: {
-    totalFiles: number
-    categories: Record<string, number>
-  }
-}
-
-export default function Dashboard() {
-  const [dailyFiles, setDailyFiles] = useState<DailyFiles | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [copiedFile, setCopiedFile] = useState<string | null>(null)
-  const [expandedFile, setExpandedFile] = useState<string | null>(null)
-  const [generating, setGenerating] = useState(false)
-
-  const loadDailyFiles = useCallback(async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/supabase-files')
-      
-      if (!response.ok) {
-        throw new Error('Failed to load files')
-      }
-      
-      const data = await response.json()
-      console.log('Loaded data:', data)
-      setDailyFiles(data)
-    } catch (error: any) {
-      console.error('Error loading files:', error)
-      
-      // Try fallback
-      try {
-        const fallbackResponse = await fetch('/api/files')
-        const fallbackData = await fallbackResponse.json()
-        setDailyFiles(fallbackData)
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+export default function LandingPage() {
+  const router = useRouter()
+  const { user } = useAuth()
 
   useEffect(() => {
-    loadDailyFiles()
-  }, [loadDailyFiles])
-
-  const copyToClipboard = async (content: string, fileId: string) => {
-    try {
-      await navigator.clipboard.writeText(content)
-      setCopiedFile(fileId)
-      setTimeout(() => setCopiedFile(null), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
+    if (user) {
+      router.push('/dashboard')
     }
-  }
-
-  const downloadFile = (file: any) => {
-    if (!file.content) return
-    
-    const blob = new Blob([file.content], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = file.name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const triggerGeneration = async () => {
-    setGenerating(true)
-    try {
-      // First try the AI-powered endpoint
-      const response = await fetch('/api/generate-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      
-      if (!response.ok) {
-        const error = await response.json()
-        
-        // If OpenAI key is missing, fall back to Edge Function
-        if (error.error && error.error.includes('OpenAI')) {
-          console.log('Falling back to Edge Function...')
-          const fallbackResponse = await fetch('/api/supabase-files', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          })
-          
-          if (!fallbackResponse.ok) {
-            const fallbackError = await fallbackResponse.json()
-            throw new Error(fallbackError.details || fallbackError.error || 'Generation failed')
-          }
-          
-          const fallbackResult = await fallbackResponse.json()
-          handleGenerationSuccess(fallbackResult, 'Edge Function')
-          return
-        }
-        
-        throw new Error(error.details || error.error || 'Generation failed')
-      }
-      
-      const result = await response.json()
-      handleGenerationSuccess(result, 'AI')
-      
-    } catch (error: any) {
-      console.error('Generation error:', error)
-      
-      // Show error message
-      const errorDiv = document.createElement('div')
-      errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50'
-      errorDiv.textContent = `Error: ${error.message}`
-      document.body.appendChild(errorDiv)
-      
-      // Remove after 5 seconds
-      setTimeout(() => {
-        document.body.removeChild(errorDiv)
-      }, 5000)
-    } finally {
-      setGenerating(false)
-    }
-  }
-  
-  const handleGenerationSuccess = (result: any, method: string) => {
-    console.log(`Generation triggered via ${method}:`, result)
-    
-    if (result.success) {
-      // Show success message with file count
-      const successDiv = document.createElement('div')
-      successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg z-50'
-      
-      const filesCreated = result.files_created || result.file_count || 1
-      successDiv.innerHTML = `
-        <div class="font-medium">Files generated successfully!</div>
-        <div class="text-sm opacity-90">${filesCreated} files created via ${method}. Refreshing...</div>
-      `
-      document.body.appendChild(successDiv)
-      
-      // Remove after 4 seconds
-      setTimeout(() => {
-        if (document.body.contains(successDiv)) {
-          document.body.removeChild(successDiv)
-        }
-      }, 4000)
-      
-      // Wait a bit for database to update, then refresh
-      setTimeout(() => loadDailyFiles(), 3000)
-    }
-  }
-
-  // Convert files object to array for display
-  const filesArray = dailyFiles?.files 
-    ? Object.entries(dailyFiles.files).map(([key, file]) => ({
-        ...file,
-        id: file.id || key,
-        name: file.name || key
-      }))
-    : []
-
-  // Calculate total size if not provided
-  const totalSize = dailyFiles?.totalSize || filesArray.reduce((sum, file) => sum + (file.size || 0), 0)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading files...</p>
-        </div>
-      </div>
-    )
-  }
+  }, [user, router])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Sidetool Logo */}
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">S</span>
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">Sidetool GSO</h1>
-                  <p className="text-xs text-gray-500">Generated Semantic Objects</p>
-                </div>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Navigation */}
+      <nav className="bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-xl">L</span>
               </div>
+              <span className="text-xl font-bold text-gray-900">LLMs.txt Generator</span>
             </div>
             
             <div className="flex items-center gap-4">
-              <a 
-                href="https://sidetool.co" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                sidetool.co →
+              <a href="/auth" className="text-gray-600 hover:text-gray-900">
+                Sign In
               </a>
-              <button
-                onClick={triggerGeneration}
-                disabled={generating}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                  generating
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-900 text-white hover:bg-gray-800'
-                }`}
+              <a 
+                href="/auth" 
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-600"
               >
-                {generating ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Generating with AI...</span>
-                  </>
-                ) : (
-                  'Generate Now'
-                )}
-              </button>
+                Get Started
+              </a>
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Status Bar */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6 text-sm">
-              <div>
-                <span className="text-gray-500">Files:</span>
-                <span className="ml-2 font-medium text-gray-900">{filesArray.length}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Total Size:</span>
-                <span className="ml-2 font-medium text-gray-900">{(totalSize / 1024).toFixed(1)} KB</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Updated:</span>
-                <span className="ml-2 font-medium text-gray-900">
-                  {dailyFiles ? new Date(dailyFiles.generatedAt || dailyFiles.date).toLocaleString() : '-'}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500">Source:</span>
-                <span className="ml-2 font-medium text-gray-900">{dailyFiles?.source || 'Unknown'}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">Live</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div className="text-sm">
-              <p className="text-blue-900 font-medium mb-1">About LLMs.txt Files</p>
-              <p className="text-blue-700">
-                These files help AI systems understand Sidetool's services and content. 
-                Files are generated daily at 3 AM UTC and include blog posts, service descriptions, and technical capabilities.
-                Place them at your website root (e.g., sidetool.co/llms.txt) for AI discovery.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Files List */}
-        {filesArray.length > 0 ? (
-          <div className="space-y-4">
-            {/* Group files by category */}
-            {['collection', 'topic', 'individual'].map(category => {
-              const categoryFiles = filesArray.filter(file => file.category === category)
-              if (categoryFiles.length === 0) return null
-
-              return (
-                <div key={category} className="space-y-3">
-                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                    {category === 'collection' ? 'Main Collections' : 
-                     category === 'topic' ? 'Topic Collections' : 
-                     'Individual Files'}
-                  </h2>
-                  
-                  <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
-                    {categoryFiles.map(file => (
-                      <div key={file.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-1">
-                              <h3 className="text-sm font-medium text-gray-900 truncate">
-                                {file.name}
-                              </h3>
-                              <span className="text-xs text-gray-500">
-                                {(file.size / 1024).toFixed(1)} KB
-                              </span>
-                              {file.published && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                  Published
-                                </span>
-                              )}
-                            </div>
-                            {file.description && (
-                              <p className="text-sm text-gray-600 mb-2">{file.description}</p>
-                            )}
-                            
-                            {/* Preview Toggle */}
-                            {file.content && (
-                              <button
-                                onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}
-                                className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                              >
-                                <svg 
-                                  className={`w-3 h-3 transform transition-transform ${expandedFile === file.id ? 'rotate-90' : ''}`}
-                                  fill="none" 
-                                  stroke="currentColor" 
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                                {expandedFile === file.id ? 'Hide' : 'Show'} preview
-                              </button>
-                            )}
-                            
-                            {/* Content Preview */}
-                            {expandedFile === file.id && file.content && (
-                              <pre className="mt-3 p-3 bg-gray-50 rounded border border-gray-200 text-xs text-gray-600 font-mono overflow-x-auto max-h-48 overflow-y-auto">
-                                {file.content.substring(0, 500)}
-                                {file.content.length > 500 && '\n\n... (truncated)'}
-                              </pre>
-                            )}
-                          </div>
-                          
-                          {/* Actions */}
-                          <div className="flex items-center gap-2 ml-4">
-                            {file.storageUrl && (
-                              <a
-                                href={file.storageUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 text-gray-400 hover:text-gray-600"
-                                title="View in storage"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                              </a>
-                            )}
-                            <button
-                              onClick={() => copyToClipboard(file.content || '', file.id)}
-                              className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
-                                copiedFile === file.id
-                                  ? 'bg-green-50 text-green-700 border-green-300'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              {copiedFile === file.id ? 'Copied!' : 'Copy'}
-                            </button>
-                            <button
-                              onClick={() => downloadFile(file)}
-                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                            >
-                              Download
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-gray-600 mb-2">No files found</p>
-            <p className="text-sm text-gray-500 mb-4">Generate files to see them here</p>
-            <button
-              onClick={triggerGeneration}
-              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800"
+      {/* Hero Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            Transform Any Website into
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">
+              AI-Ready Content
+            </span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Generate standardized llms.txt and llms-full.txt files from any website. 
+            Perfect for LLM training, inference, and making your content discoverable by AI systems.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <a 
+              href="/auth"
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-600 text-lg"
             >
-              Generate Files
-            </button>
+              Start Generating
+            </a>
+            <a 
+              href="#how-it-works"
+              className="px-8 py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 text-lg"
+            >
+              Learn More
+            </a>
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <div>
-              <p>Generated Semantic Objects (GSO) by Sidetool</p>
-              <p className="text-xs mt-1">
-                Automated daily at 3 AM UTC • 
-                <a href="/api/debug-env" className="text-blue-600 hover:underline ml-1">Debug</a> • 
-                <a href="https://github.com/sidetoolco" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">GitHub</a>
+      {/* Features Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          Powered by Industry-Leading Technology
+        </h2>
+        
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Firecrawl Integration</h3>
+            <p className="text-gray-600">
+              Advanced web crawling and content extraction. Maps entire websites and extracts clean, structured content.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">GPT-4 Summaries</h3>
+            <p className="text-gray-600">
+              AI-powered content summarization creates concise titles and descriptions for optimal LLM understanding.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Batch Processing</h3>
+            <p className="text-gray-600">
+              Parallel processing of multiple URLs for fast generation. Handle sites with hundreds of pages efficiently.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="bg-gray-50 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+            How It Works
+          </h2>
+          
+          <div className="grid md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-200">
+                <span className="text-2xl font-bold text-blue-600">1</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Enter Domain</h3>
+              <p className="text-sm text-gray-600">
+                Simply input the website domain you want to process
               </p>
             </div>
-            <div className="text-right">
-              <p>Need help?</p>
-              <a href="mailto:hello@sidetool.co" className="text-blue-600 hover:underline">hello@sidetool.co</a>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-200">
+                <span className="text-2xl font-bold text-blue-600">2</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Map & Crawl</h3>
+              <p className="text-sm text-gray-600">
+                Firecrawl discovers and extracts content from all pages
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-200">
+                <span className="text-2xl font-bold text-blue-600">3</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">AI Processing</h3>
+              <p className="text-sm text-gray-600">
+                GPT-4 generates summaries and structures the content
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-200">
+                <span className="text-2xl font-bold text-blue-600">4</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Download Files</h3>
+              <p className="text-sm text-gray-600">
+                Get your llms.txt and llms-full.txt files ready to use
+              </p>
             </div>
           </div>
         </div>
-      </main>
+      </section>
+
+      {/* Use Cases */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          Perfect For
+        </h2>
+        
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Training & Fine-tuning</h3>
+            <p className="text-gray-600 mb-4">
+              Create high-quality datasets from any website for training or fine-tuning language models.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Clean, structured markdown content</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Consistent formatting across all pages</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>AI-generated summaries for context</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Discovery & SEO</h3>
+            <p className="text-gray-600 mb-4">
+              Make your website content discoverable by ChatGPT, Claude, and other AI systems.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Standard llms.txt format</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Optimized for AI crawlers</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Ready to deploy at /llms.txt</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-cyan-500 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Make Your Content AI-Ready?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Start generating LLMs.txt files in minutes. No credit card required for your first project.
+          </p>
+          <a 
+            href="/auth"
+            className="inline-block px-8 py-3 bg-white text-blue-600 font-medium rounded-lg hover:bg-gray-50 text-lg"
+          >
+            Get Started Free
+          </a>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-gray-400 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold">L</span>
+                </div>
+                <span className="text-white font-semibold">LLMs.txt Generator</span>
+              </div>
+              <p className="text-sm">
+                Transform websites into AI-ready content with the power of Firecrawl and OpenAI.
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="text-white font-semibold mb-3">Product</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#features" className="hover:text-white">Features</a></li>
+                <li><a href="#how-it-works" className="hover:text-white">How It Works</a></li>
+                <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="text-white font-semibold mb-3">Resources</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="/docs" className="hover:text-white">Documentation</a></li>
+                <li><a href="/api" className="hover:text-white">API Reference</a></li>
+                <li><a href="/blog" className="hover:text-white">Blog</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="text-white font-semibold mb-3">Company</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="/about" className="hover:text-white">About</a></li>
+                <li><a href="/contact" className="hover:text-white">Contact</a></li>
+                <li><a href="/privacy" className="hover:text-white">Privacy Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
+            © 2024 LLMs.txt Generator. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

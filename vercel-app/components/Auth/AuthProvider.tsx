@@ -1,13 +1,16 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { User } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create a dummy client for build time when env vars are not available
+export const supabase: SupabaseClient = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null as any
 
 interface AuthContextType {
   user: User | null
@@ -27,6 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Only run auth logic if supabase client is available
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -38,10 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null)
     })
 
-    return () => subscription.unsubscribe()
+    return () => subscription?.unsubscribe()
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) return { error: new Error('Supabase not configured') }
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -54,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, name?: string) => {
+    if (!supabase) return { error: new Error('Supabase not configured') }
     try {
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -80,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
+    if (!supabase) return { error: new Error('Supabase not configured') }
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -94,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGitHub = async () => {
+    if (!supabase) return { error: new Error('Supabase not configured') }
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -108,10 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    if (supabase) await supabase.auth.signOut()
   }
 
   const resetPassword = async (email: string) => {
+    if (!supabase) return { error: new Error('Supabase not configured') }
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
