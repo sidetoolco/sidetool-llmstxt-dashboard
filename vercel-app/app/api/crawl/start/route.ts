@@ -134,125 +134,80 @@ export async function POST(request: Request) {
         })
         .eq('id', job.id)
       
-      // Crawl each URL for content (process up to 5 at a time)
-      console.log(`Starting content crawling for ${urls.length} URLs`)
+      // Limit to first 3 URLs to avoid timeout
+      const urlsToProcess = urls.slice(0, 3)
+      console.log(`Starting content crawling for ${urlsToProcess.length} URLs (limited from ${urls.length} total)`)
       const crawledUrls = []
       const openaiApiKey = process.env.OPENAI_API_KEY
       
-      for (let i = 0; i < urls.length; i += 5) {
-        const batch = urls.slice(i, i + 5)
-        const batchPromises = batch.map(async (url: string) => {
-          try {
-            console.log(`Scraping ${url}`)
-            
-            // Scrape the URL using Firecrawl
-            const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${firecrawlApiKey}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                url,
-                formats: ['markdown', 'html']
-              })
-            })
-            
-            if (!scrapeResponse.ok) {
-              console.error(`Failed to scrape ${url}:`, await scrapeResponse.text())
-              return null
-            }
-            
-            const scrapeData = await scrapeResponse.json()
-            const markdown = scrapeData.data?.markdown || ''
-            const html = scrapeData.data?.html || ''
-            const pageTitle = scrapeData.data?.metadata?.title || new URL(url).pathname.slice(1) || 'Untitled'
-            
-            // Generate AI summary if OpenAI is configured
-            let title = pageTitle.substring(0, 50)
-            let description = scrapeData.data?.metadata?.description || 'No description available'
-            
-            if (openaiApiKey && markdown) {
-              try {
-                const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${openaiApiKey}`,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: [
-                      {
-                        role: 'system',
-                        content: 'Generate a concise title (3-4 words) and description (9-10 words) for this webpage content. Format: Title: [title]\nDescription: [description]'
-                      },
-                      {
-                        role: 'user',
-                        content: markdown.substring(0, 2000)
-                      }
-                    ],
-                    temperature: 0.3,
-                    max_tokens: 50
-                  })
-                })
-                
-                if (summaryResponse.ok) {
-                  const summaryData = await summaryResponse.json()
-                  const output = summaryData.choices[0].message.content
-                  const lines = output.split('\n')
-                  title = lines[0]?.replace('Title: ', '').trim() || title
-                  description = lines[1]?.replace('Description: ', '').trim() || description
-                }
-              } catch (err) {
-                console.error('Summary generation error:', err)
-              }
-            }
-            
-            // Update URL record with content
-            await supabase
-              .from('crawled_urls')
-              .update({
-                status: 'completed',
-                title,
-                description,
-                content: markdown,
-                crawled_at: new Date().toISOString()
-              })
-              .eq('job_id', job.id)
-              .eq('url', url)
-            
-            return {
+      // Process URLs one at a time to avoid timeout
+      for (const url of urlsToProcess) {
+        try {
+          console.log(`Scraping ${url}`)
+          
+          // Skip OpenAI for now to save time
+          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${firecrawlApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
               url,
-              title,
-              description,
-              content: markdown
-            }
-          } catch (error) {
-            console.error(`Error crawling ${url}:`, error)
-            await supabase
-              .from('crawled_urls')
-              .update({
-                status: 'failed',
-                error_message: error.message
-              })
-              .eq('job_id', job.id)
-              .eq('url', url)
-            return null
-          }
-        })
-        
-        const batchResults = await Promise.all(batchPromises)
-        crawledUrls.push(...batchResults.filter(r => r !== null))
-        
-        // Update progress
-        await supabase
-          .from('crawl_jobs')
-          .update({
-            urls_crawled: crawledUrls.length,
-            urls_processed: crawledUrls.length
+              formats: ['markdown']
+            })
           })
-          .eq('id', job.id)
+          
+          if (!scrapeResponse.ok) {
+            console.error(`Failed to scrape ${url}`)
+            continue
+          }
+          
+          const scrapeData = await scrapeResponse.json()
+          const markdown = scrapeData.data?.markdown || ''
+          const pageTitle = scrapeData.data?.metadata?.title || new URL(url).pathname.slice(1) || 'Untitled'
+          const description = scrapeData.data?.metadata?.description || 'No description available'
+          
+          // Update URL record with content
+          await supabase
+            .from('crawled_urls')
+            .update({
+              status: 'completed',
+              title: pageTitle.substring(0, 100),
+              description: description.substring(0, 200),
+              content: markdown.substring(0, 50000), // Limit content size
+              crawled_at: new Date().toISOString()
+            })
+            .eq('job_id', job.id)
+            .eq('url', url)
+          
+          crawledUrls.push({
+            url,
+            title: pageTitle,
+            description,
+            content: markdown
+          })
+          
+          // Update progress
+          await supabase
+            .from('crawl_jobs')
+            .update({
+              urls_crawled: crawledUrls.length,
+              urls_processed: crawledUrls.length
+            })
+            .eq('id', job.id)
+            
+        } catch (error) {
+          console.error(`Error crawling ${url}:`, error)
+          await supabase
+            .from('crawled_urls')
+            .update({
+              status: 'failed',
+              error_message: error.message
+            })
+            .eq('job_id', job.id)
+            .eq('url', url)
+        }
       }
       
       console.log(`Crawled ${crawledUrls.length} URLs successfully`)
