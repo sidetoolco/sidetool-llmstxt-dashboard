@@ -42,7 +42,7 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New LLMs.txt Files Generated</title>
+  <title>New SideGSO Files Generated</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background: #f8fafc; }
     .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }
@@ -77,7 +77,7 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚀 New LLMs.txt Files Generated</h1>
+      <h1>🚀 New SideGSO Files Generated</h1>
       <p>Fresh AI discovery files ready for deployment</p>
     </div>
 
@@ -103,7 +103,7 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
 
       <div style="text-align: center; margin: 25px 0;">
         <a href="https://gso.sidetool.co" class="cta-button">View Dashboard</a>
-        <a href="https://github.com/sidetoolco/sidetool-llmstxt-generator" class="cta-button secondary">View Repository</a>
+        <a href="https://github.com/sidetoolco/sidegso" class="cta-button secondary">View Repository</a>
       </div>
 
       ${collectionFiles.length > 0 ? `
@@ -197,7 +197,7 @@ function generateEmailContent(files: Record<string, FileData>, generation_id: st
     <div class="footer">
       <p><strong>Generation ID:</strong> ${generation_id}</p>
       <p><strong>Generated:</strong> ${new Date(generated_at).toLocaleString()}</p>
-      <p>This email was sent automatically by the Sidetool LLMs.txt Generator system.</p>
+      <p>This email was sent automatically by the SideGSO system.</p>
     </div>
   </div>
 </body>
@@ -213,9 +213,9 @@ export async function POST(request: Request) {
     const emailContent = generateEmailContent(files, generation_id, generated_at)
     
     const { data, error } = await resend.emails.send({
-      from: 'LLMs.txt Generator <onboarding@resend.dev>',
+      from: 'SideGSO <onboarding@resend.dev>',
       to: ['ed@sidetool.co'],
-      subject: `🚀 New LLMs.txt Files Generated - ${total_files} files ready`,
+      subject: `🚀 New SideGSO Files Generated - ${total_files} files ready`,
       html: emailContent,
     })
 

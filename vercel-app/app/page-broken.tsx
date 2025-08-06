@@ -303,8 +303,8 @@ export default function ImprovedDashboard() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">LLMs.txt Generator</h1>
-                <p className="text-sm text-gray-600">AI-optimized content for Sidetool</p>
+                <h1 className="text-xl font-bold text-gray-900">SideGSO</h1>
+                <p className="text-sm text-gray-600">Transform websites into AI-ready content</p>
               </div>
             </div>
             

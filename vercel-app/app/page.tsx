@@ -22,9 +22,9 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">L</span>
+                <span className="text-white font-bold text-xl">S</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">LLMs.txt Generator</span>
+              <span className="text-xl font-bold text-gray-900">SideGSO</span>
             </div>
             
             <div className="flex items-center gap-4">
@@ -256,12 +256,12 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold">L</span>
+                  <span className="text-white font-bold">S</span>
                 </div>
-                <span className="text-white font-semibold">LLMs.txt Generator</span>
+                <span className="text-white font-semibold">SideGSO</span>
               </div>
               <p className="text-sm">
-                Transform websites into AI-ready content with the power of Firecrawl and OpenAI.
+                Transform websites into AI-ready content with SideGSO's powerful crawling technology.
               </p>
             </div>
             
@@ -294,7 +294,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
-            © 2024 LLMs.txt Generator. All rights reserved.
+            © 2024 SideGSO. All rights reserved.
           </div>
         </div>
       </footer>

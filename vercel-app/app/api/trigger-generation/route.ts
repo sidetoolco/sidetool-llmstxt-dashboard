@@ -16,7 +16,7 @@ export async function POST() {
         const { logger } = Sentry
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-        logger.info('Triggering manual LLMs.txt generation', {
+        logger.info('Triggering manual SideGSO generation', {
           trigger: 'manual',
           timestamp: new Date().toISOString()
         })

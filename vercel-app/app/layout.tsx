@@ -6,15 +6,15 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'LLMs.txt Generator - Create AI-Ready Content from Any Website',
+  title: 'SideGSO - Create AI-Ready Content from Any Website',
   description: 'Generate standardized llms.txt and llms-full.txt files from any website for LLM inference and training. Powered by Firecrawl and OpenAI.',
-  keywords: 'LLMs.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
-  authors: [{ name: 'LLMs.txt Generator Team' }],
+  keywords: 'SideGSO, LLMs.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
+  authors: [{ name: 'SideGSO Team' }],
   openGraph: {
-    title: 'LLMs.txt Generator',
+    title: 'SideGSO',
     description: 'Transform any website into AI-ready content files',
     type: 'website',
-    url: 'https://llmstxt-generator.vercel.app',
+    url: 'https://sidegso.vercel.app',
   },
   icons: {
     icon: '/favicon.svg',

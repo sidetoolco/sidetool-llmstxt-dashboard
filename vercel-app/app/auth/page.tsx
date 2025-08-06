@@ -51,9 +51,9 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">L</span>
+              <span className="text-white font-bold text-2xl">S</span>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">LLMs.txt Generator</h1>
+            <h1 className="text-3xl font-bold text-gray-900">SideGSO</h1>
           </div>
           <p className="text-gray-600">
             {mode === 'signin' ? 'Sign in to your account' : 

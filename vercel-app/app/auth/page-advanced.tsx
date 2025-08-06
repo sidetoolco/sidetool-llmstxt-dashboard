@@ -188,9 +188,9 @@ export default function AuthPage() {
               whileHover={{ scale: 1.05, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-white font-bold text-2xl">L</span>
+              <span className="text-white font-bold text-2xl">S</span>
             </motion.div>
-            <h1 className="text-3xl font-bold text-gray-900">LLMs.txt Generator</h1>
+            <h1 className="text-3xl font-bold text-gray-900">SideGSO</h1>
           </div>
           <p className="text-gray-600">
             {mode === 'signin' ? 'Welcome back! Sign in to continue' : 

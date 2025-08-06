@@ -188,11 +188,11 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">L</span>
+                <span className="text-white font-bold text-xl">S</span>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">LLMs.txt Generator</h1>
-                <p className="text-xs text-gray-500">Generate AI-ready content from any website</p>
+                <h1 className="text-xl font-semibold text-gray-900">SideGSO</h1>
+                <p className="text-xs text-gray-500">Transform websites into AI-ready content</p>
               </div>
             </div>
             
@@ -212,7 +212,7 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Input Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate LLMs.txt Files</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate SideGSO Files</h2>
           
           <div className="space-y-4">
             <div>
@@ -229,7 +229,7 @@ export default function Dashboard() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Enter the domain you want to generate LLMs.txt files for
+                Enter the domain you want to generate SideGSO files for
               </p>
             </div>
 

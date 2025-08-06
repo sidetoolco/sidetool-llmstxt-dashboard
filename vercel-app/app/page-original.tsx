@@ -42,7 +42,7 @@ export default function Dashboard() {
             totalKeywords: 0
           },
           files: {},
-          message: 'No files generated yet. Click "Generate Now" to create your first LLMs.txt files!'
+          message: 'No files generated yet. Click "Generate Now" to create your first SideGSO files!'
         })
         return
       }
@@ -119,7 +119,7 @@ export default function Dashboard() {
     return Sentry.startSpan(
       {
         op: 'ui.action',
-        name: 'Generate LLMs.txt Files',
+        name: 'Generate SideGSO Files',
       },
       async (span) => {
         try {
@@ -270,7 +270,7 @@ export default function Dashboard() {
               </svg>
             </div>
             <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-blue-700 bg-clip-text text-transparent mb-4">
-              LLMs.txt Generator
+              SideGSO
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Create optimized AI discovery files for individual posts and curated collections
@@ -342,7 +342,7 @@ export default function Dashboard() {
                         Database Connected
                       </h3>
                       <p className="text-xs text-blue-700 leading-relaxed">
-                        {dailyFiles.message || 'Ready to generate your first LLMs.txt files. Click "Generate Now" to begin!'}
+                        {dailyFiles.message || 'Ready to generate your first SideGSO files. Click "Generate Now" to begin!'}
                       </p>
                     </div>
                   </div>
