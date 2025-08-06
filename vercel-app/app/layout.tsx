@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/Auth/AuthProvider'
-import { ToastProvider } from '@/components/ui/Toast/ToastProvider'
-import ErrorBoundary from '@/components/ui/ErrorBoundary'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -38,19 +36,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#2563eb" />
       </head>
       <body className={inter.className}>
-        <ErrorBoundary>
-          <AuthProvider>
-            <ToastProvider>
-              {/* Skip to main content link for accessibility */}
-              <a href="#main" className="skip-to-content">
-                Skip to main content
-              </a>
-              <main id="main">
-                {children}
-              </main>
-            </ToastProvider>
-          </AuthProvider>
-        </ErrorBoundary>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
