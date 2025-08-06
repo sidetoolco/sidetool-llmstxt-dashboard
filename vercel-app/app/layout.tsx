@@ -1,19 +1,20 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { AuthProvider } from '@/components/Auth/AuthProvider'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Sidetool LLMs.txt Generator - AI Content Discovery',
-  description: 'Automated daily generation of LLMs.txt files for sidetool.co, optimized for ChatGPT and Perplexity discovery',
-  keywords: 'LLMs.txt, AI discovery, ChatGPT, Perplexity, Sidetool, content indexing',
-  authors: [{ name: 'Sidetool Team' }],
+  title: 'LLMs.txt Generator - Create AI-Ready Content from Any Website',
+  description: 'Generate standardized llms.txt and llms-full.txt files from any website for LLM inference and training. Powered by Firecrawl and OpenAI.',
+  keywords: 'LLMs.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
+  authors: [{ name: 'LLMs.txt Generator Team' }],
   openGraph: {
-    title: 'Sidetool LLMs.txt Generator',
-    description: 'Making sidetool.co content discoverable by AI systems',
+    title: 'LLMs.txt Generator',
+    description: 'Transform any website into AI-ready content files',
     type: 'website',
-    url: 'https://sidetool-llmstxt-dashboard.vercel.app',
+    url: 'https://llmstxt-generator.vercel.app',
   },
   icons: {
     icon: '/favicon.svg',
@@ -32,7 +33,11 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }
