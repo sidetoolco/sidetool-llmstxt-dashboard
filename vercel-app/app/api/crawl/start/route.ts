@@ -135,14 +135,58 @@ export async function POST(request: Request) {
         .from('crawled_urls')
         .insert(urlRecords)
       
-      // Add URLs to Redis queue
+      // Add URLs to Redis queue if available
       console.log(`Adding ${urls.length} URLs to queue for job ${job.id}`)
       
-      try {
-        await addJobToQueue(job.id, urls)
-      } catch (redisError) {
-        console.error('Redis error:', redisError)
-        // Fall back to marking job as ready without queue
+      const queued = await addJobToQueue(job.id, urls)
+      
+      if (queued === 0) {
+        console.log('Redis not configured - will process synchronously')
+        // If Redis is not configured, process a limited number of URLs immediately
+        const limitedUrls = urls.slice(0, 3) // Process only first 3 URLs to avoid timeout
+        
+        // Process URLs synchronously
+        for (const url of limitedUrls) {
+          try {
+            // Scrape the URL
+            const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${firecrawlApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                url,
+                formats: ['markdown']
+              })
+            })
+            
+            if (scrapeResponse.ok) {
+              const data = await scrapeResponse.json()
+              const markdown = data.data?.markdown || ''
+              const title = data.data?.metadata?.title || 'Untitled'
+              const description = data.data?.metadata?.description || 'No description'
+              
+              // Update URL record
+              await supabase
+                .from('crawled_urls')
+                .update({
+                  status: 'completed',
+                  title: title.substring(0, 100),
+                  description: description.substring(0, 200),
+                  content: markdown.substring(0, 50000),
+                  crawled_at: new Date().toISOString()
+                })
+                .eq('job_id', job.id)
+                .eq('url', url)
+            }
+          } catch (err) {
+            console.error(`Error processing ${url}:`, err)
+          }
+        }
+        
+        // Generate files immediately
+        await generateSimpleFiles(job.id, supabase)
       }
       
       // Update job status
@@ -595,4 +639,90 @@ async function sendCompletionNotification(jobId: string) {
   
   // Send email via API (implement based on your email service)
   // This would integrate with Resend, SendGrid, or another email service
+}
+
+async function generateSimpleFiles(jobId: string, supabase: any) {
+  // Get job info
+  const { data: job } = await supabase
+    .from('crawl_jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single()
+  
+  // Get all completed URLs
+  const { data: urls } = await supabase
+    .from('crawled_urls')
+    .select('*')
+    .eq('job_id', jobId)
+    .eq('status', 'completed')
+    .order('url')
+  
+  if (!urls || urls.length === 0) {
+    console.log('No completed URLs to generate files from')
+    await supabase
+      .from('crawl_jobs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', jobId)
+    return
+  }
+  
+  // Generate llms.txt
+  let llmsTxt = `# ${job.domain} - SideGSO Files\n\n`
+  llmsTxt += `Generated: ${new Date().toISOString()}\n`
+  llmsTxt += `Total Pages: ${urls.length}\n\n`
+  llmsTxt += `## Pages\n\n`
+  
+  for (const url of urls) {
+    llmsTxt += `- [${url.title}](${url.url}): ${url.description}\n`
+  }
+  
+  // Generate llms-full.txt
+  let llmsFull = `# ${job.domain} - Complete Content\n\n`
+  llmsFull += `Generated: ${new Date().toISOString()}\n`
+  llmsFull += `Total Pages: ${urls.length}\n\n`
+  llmsFull += `---\n\n`
+  
+  for (const url of urls) {
+    llmsFull += `## ${url.url}\n\n`
+    llmsFull += `**Title:** ${url.title}\n`
+    llmsFull += `**Description:** ${url.description}\n\n`
+    llmsFull += `### Content\n\n`
+    llmsFull += url.content || 'No content available'
+    llmsFull += `\n\n---\n\n`
+  }
+  
+  // Store files
+  await supabase
+    .from('generated_files')
+    .insert([
+      {
+        job_id: jobId,
+        file_type: 'llms.txt',
+        file_path: `${job.domain}/llms.txt`,
+        file_size: new TextEncoder().encode(llmsTxt).length,
+        content: llmsTxt
+      },
+      {
+        job_id: jobId,
+        file_type: 'llms-full.txt',
+        file_path: `${job.domain}/llms-full.txt`,
+        file_size: new TextEncoder().encode(llmsFull).length,
+        content: llmsFull
+      }
+    ])
+  
+  // Mark job as completed
+  await supabase
+    .from('crawl_jobs')
+    .update({
+      status: 'completed',
+      urls_processed: urls.length,
+      completed_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+  
+  console.log(`Generated files for job ${jobId}`)
 }
