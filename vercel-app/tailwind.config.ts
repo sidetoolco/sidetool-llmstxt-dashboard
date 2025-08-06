@@ -76,6 +76,11 @@ const config: Config = {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'pulse-subtle': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'ripple': 'ripple 0.6s ease-out',
+        'shimmer': 'shimmer 2s infinite',
+        'indeterminate': 'indeterminate 1.5s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite',
+        'bounce-subtle': 'bounceSubtle 1s infinite',
+        'float': 'float 3s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -85,6 +90,27 @@ const config: Config = {
         slideUp: {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        ripple: {
+          '0%': { transform: 'translate(-50%, -50%) scale(1)', opacity: '1' },
+          '100%': { transform: 'translate(-50%, -50%) scale(100)', opacity: '0' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(200%)' },
+        },
+        indeterminate: {
+          '0%': { left: '-35%', right: '100%' },
+          '60%': { left: '100%', right: '-90%' },
+          '100%': { left: '100%', right: '-90%' },
+        },
+        bounceSubtle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
         },
       },
       boxShadow: {
