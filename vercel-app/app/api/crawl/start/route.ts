@@ -125,6 +125,8 @@ async function startCrawlProcess(
     
     // Step 1: Map the website using Firecrawl
     console.log(`Starting URL mapping for ${domain}`)
+    console.log(`Using API key: ${apiKey?.substring(0, 10)}...`)
+    console.log(`Target URL: https://${domain}`)
     
     const mapResponse = await fetch('https://api.firecrawl.dev/v1/map', {
       method: 'POST',
@@ -138,6 +140,9 @@ async function startCrawlProcess(
         limit: maxPages
       })
     })
+    
+    console.log(`Firecrawl response status: ${mapResponse.status}`)
+    console.log(`Firecrawl response headers:`, mapResponse.headers)
     
     if (!mapResponse.ok) {
       const error = await mapResponse.text()
