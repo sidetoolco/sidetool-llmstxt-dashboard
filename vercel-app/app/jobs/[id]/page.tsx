@@ -8,6 +8,7 @@ import { supabase } from '@/components/Auth/AuthProvider'
 interface GeneratedFile {
   id: string
   file_type: 'llms.txt' | 'llms-full.txt'
+  file_path?: string
   content: string
   file_size: number
   created_at: string
@@ -114,7 +115,8 @@ export default function JobDetailsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${job?.domain.replace(/\./g, '_')}_${file.file_type}`
+    // Use the file path's filename if available, otherwise fallback to domain_file_type
+    a.download = file.file_path?.split('/').pop() || `${job?.domain.replace(/\./g, '_')}_${file.file_type}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -247,10 +249,15 @@ export default function JobDetailsPage() {
               <div key={file.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{file.file_type}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {file.file_path?.split('/').pop() || file.file_type}
+                    </h3>
                     <p className="text-sm text-gray-500">
                       {formatBytes(file.file_size)} • Downloaded {file.download_count || 0} times
                     </p>
+                    {file.file_path?.includes('index-llms.txt') && (
+                      <p className="text-xs text-blue-600 mt-1">Index file with links to all pages</p>
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
