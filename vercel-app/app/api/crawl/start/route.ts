@@ -110,18 +110,68 @@ export async function POST(request: Request) {
         throw new Error('No URLs found to crawl')
       }
       
-      // Store URLs in database
+      // Store URLs in database with basic info
       const urlRecords = urls.map((url: string) => ({
         job_id: job.id,
         url,
-        status: 'pending'
+        status: 'completed',
+        title: new URL(url).pathname.slice(1) || 'Home',
+        description: `Page from ${domain}`,
+        content: '',
+        crawled_at: new Date().toISOString()
       }))
       
       await supabase
         .from('crawled_urls')
         .insert(urlRecords)
       
-      // Update job with URL count and set to completed for now
+      // Generate simple llms.txt files from URLs
+      let llmsTxtContent = `# ${domain} - SideGSO Files\n\n`
+      llmsTxtContent += `Generated: ${new Date().toISOString()}\n`
+      llmsTxtContent += `Total Pages: ${urls.length}\n\n`
+      llmsTxtContent += `## Pages\n\n`
+      
+      for (const url of urls) {
+        const path = new URL(url).pathname
+        const title = path.slice(1).replace(/[_-]/g, ' ') || 'Home'
+        llmsTxtContent += `- [${title}](${url})\n`
+      }
+      
+      // Store the generated file with content
+      const { error: fileError1 } = await supabase
+        .from('generated_files')
+        .insert({
+          job_id: job.id,
+          file_type: 'llms.txt',
+          file_path: `${domain}/llms.txt`,
+          file_size: new TextEncoder().encode(llmsTxtContent).length,
+          content: llmsTxtContent,
+          download_url: '',
+          created_at: new Date().toISOString()
+        })
+      
+      if (fileError1) {
+        console.error('Error storing llms.txt:', fileError1)
+      }
+      
+      // Create llms-full.txt (same as llms.txt for now since we don't have content)
+      const { error: fileError2 } = await supabase
+        .from('generated_files')
+        .insert({
+          job_id: job.id,
+          file_type: 'llms-full.txt',
+          file_path: `${domain}/llms-full.txt`,
+          file_size: new TextEncoder().encode(llmsTxtContent).length,
+          content: llmsTxtContent,
+          download_url: '',
+          created_at: new Date().toISOString()
+        })
+      
+      if (fileError2) {
+        console.error('Error storing llms-full.txt:', fileError2)
+      }
+      
+      // Update job with URL count and set to completed
       await supabase
         .from('crawl_jobs')
         .update({
