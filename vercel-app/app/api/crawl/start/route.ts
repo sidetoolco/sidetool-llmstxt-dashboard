@@ -69,11 +69,30 @@ export async function POST(request: Request) {
       throw new Error('Failed to create job')
     }
     
-    // Start the crawl process asynchronously
+    // Start the mapping process synchronously first
+    try {
+      await mapWebsiteUrls(job.id, domain, max_pages, firecrawlApiKey, supabase)
+    } catch (error: any) {
+      console.error('Mapping error:', error)
+      await supabase
+        .from('crawl_jobs')
+        .update({
+          status: 'failed',
+          error_message: error.message,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.id)
+        
+      return NextResponse.json(
+        { message: `Mapping failed: ${error.message}` },
+        { status: 500 }
+      )
+    }
+    
+    // Start the crawl process asynchronously for the actual content
     startCrawlProcess(job.id, domain, max_pages, firecrawlApiKey)
       .catch(error => {
         console.error('Crawl process error:', error)
-        // Update job status to failed
         supabase
           .from('crawl_jobs')
           .update({
@@ -142,17 +161,23 @@ async function startCrawlProcess(
     })
     
     console.log(`Firecrawl response status: ${mapResponse.status}`)
-    console.log(`Firecrawl response headers:`, mapResponse.headers)
     
     if (!mapResponse.ok) {
       const error = await mapResponse.text()
-      throw new Error(`Firecrawl map failed: ${error}`)
+      console.log(`Firecrawl error response: ${error}`)
+      throw new Error(`Firecrawl map failed (${mapResponse.status}): ${error}`)
     }
     
     const mapData = await mapResponse.json()
+    console.log(`Firecrawl response data:`, JSON.stringify(mapData, null, 2))
+    
     const urls = mapData.links || []
     
     console.log(`Found ${urls.length} URLs to crawl`)
+    
+    if (urls.length === 0) {
+      throw new Error('No URLs found to crawl - website may be inaccessible or blocked')
+    }
     
     // Store URLs in database
     const urlRecords = urls.map((url: string) => ({
