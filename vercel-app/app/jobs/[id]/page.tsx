@@ -9,9 +9,9 @@ interface GeneratedFile {
   id: string
   file_type: 'llms.txt' | 'llms-full.txt'
   content: string
-  size: number
+  file_size: number
   created_at: string
-  download_count: number
+  download_count?: number
 }
 
 interface CrawledUrl {
@@ -124,7 +124,7 @@ export default function JobDetailsPage() {
     supabase
       .from('generated_files')
       .update({ 
-        download_count: file.download_count + 1,
+        download_count: (file.download_count || 0) + 1,
         last_downloaded_at: new Date().toISOString()
       })
       .eq('id', file.id)
@@ -249,7 +249,7 @@ export default function JobDetailsPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{file.file_type}</h3>
                     <p className="text-sm text-gray-500">
-                      {formatBytes(file.size)} • Downloaded {file.download_count} times
+                      {formatBytes(file.file_size)} • Downloaded {file.download_count || 0} times
                     </p>
                   </div>
                   
