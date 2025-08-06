@@ -138,7 +138,10 @@ export async function POST(request: Request) {
       }
       
       // Store the generated file with content
-      const { error: fileError1 } = await supabase
+      console.log('Storing llms.txt file for job:', job.id)
+      console.log('Content preview:', llmsTxtContent.substring(0, 200))
+      
+      const { data: file1, error: fileError1 } = await supabase
         .from('generated_files')
         .insert({
           job_id: job.id,
@@ -146,16 +149,22 @@ export async function POST(request: Request) {
           file_path: `${domain}/llms.txt`,
           file_size: new TextEncoder().encode(llmsTxtContent).length,
           content: llmsTxtContent,
-          download_url: '',
-          created_at: new Date().toISOString()
+          download_url: ''
         })
+        .select()
+        .single()
       
       if (fileError1) {
         console.error('Error storing llms.txt:', fileError1)
+        throw new Error(`Failed to store llms.txt: ${fileError1.message}`)
+      } else {
+        console.log('Successfully stored llms.txt with id:', file1?.id)
       }
       
       // Create llms-full.txt (same as llms.txt for now since we don't have content)
-      const { error: fileError2 } = await supabase
+      console.log('Storing llms-full.txt file for job:', job.id)
+      
+      const { data: file2, error: fileError2 } = await supabase
         .from('generated_files')
         .insert({
           job_id: job.id,
@@ -163,12 +172,16 @@ export async function POST(request: Request) {
           file_path: `${domain}/llms-full.txt`,
           file_size: new TextEncoder().encode(llmsTxtContent).length,
           content: llmsTxtContent,
-          download_url: '',
-          created_at: new Date().toISOString()
+          download_url: ''
         })
+        .select()
+        .single()
       
       if (fileError2) {
         console.error('Error storing llms-full.txt:', fileError2)
+        throw new Error(`Failed to store llms-full.txt: ${fileError2.message}`)
+      } else {
+        console.log('Successfully stored llms-full.txt with id:', file2?.id)
       }
       
       // Update job with URL count and set to completed
