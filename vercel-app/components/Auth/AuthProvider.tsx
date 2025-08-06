@@ -17,8 +17,6 @@ interface AuthContextType {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
-  signInWithGoogle: () => Promise<{ error: Error | null }>
-  signInWithGitHub: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: Error | null }>
 }
@@ -90,36 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signInWithGoogle = async () => {
-    if (!supabase) return { error: new Error('Supabase not configured') }
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      })
-      return { error }
-    } catch (error) {
-      return { error: error as Error }
-    }
-  }
-
-  const signInWithGitHub = async () => {
-    if (!supabase) return { error: new Error('Supabase not configured') }
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      })
-      return { error }
-    } catch (error) {
-      return { error: error as Error }
-    }
-  }
-
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut()
   }
@@ -141,8 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signUp,
-    signInWithGoogle,
-    signInWithGitHub,
     signOut,
     resetPassword
   }
