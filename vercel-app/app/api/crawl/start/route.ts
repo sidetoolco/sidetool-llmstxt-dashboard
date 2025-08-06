@@ -147,6 +147,10 @@ async function startCrawlProcess(
     console.log(`Using API key: ${apiKey?.substring(0, 10)}...`)
     console.log(`Target URL: https://${domain}`)
     
+    // Add timeout to prevent Vercel function timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+    
     const mapResponse = await fetch('https://api.firecrawl.dev/v1/map', {
       method: 'POST',
       headers: {
@@ -157,8 +161,11 @@ async function startCrawlProcess(
         url: `https://${domain}`,
         includeSubdomains: false,
         limit: maxPages
-      })
+      }),
+      signal: controller.signal
     })
+    
+    clearTimeout(timeoutId)
     
     console.log(`Firecrawl response status: ${mapResponse.status}`)
     
