@@ -69,27 +69,7 @@ export async function POST(request: Request) {
       throw new Error('Failed to create job')
     }
     
-    // Start the mapping process synchronously first
-    try {
-      await mapWebsiteUrls(job.id, domain, max_pages, firecrawlApiKey, supabase)
-    } catch (error: any) {
-      console.error('Mapping error:', error)
-      await supabase
-        .from('crawl_jobs')
-        .update({
-          status: 'failed',
-          error_message: error.message,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', job.id)
-        
-      return NextResponse.json(
-        { message: `Mapping failed: ${error.message}` },
-        { status: 500 }
-      )
-    }
-    
-    // Start the crawl process asynchronously for the actual content
+    // Start the crawl process asynchronously
     startCrawlProcess(job.id, domain, max_pages, firecrawlApiKey)
       .catch(error => {
         console.error('Crawl process error:', error)
