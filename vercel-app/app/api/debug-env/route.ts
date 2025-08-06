@@ -30,6 +30,10 @@ export async function GET() {
         exists: !!process.env.OPENAI_API_KEY,
         startsWith: process.env.OPENAI_API_KEY?.substring(0, 7) + '...'
       },
+      FIRECRAWL_API_KEY: {
+        exists: !!process.env.FIRECRAWL_API_KEY,
+        startsWith: process.env.FIRECRAWL_API_KEY?.substring(0, 10) + '...'
+      },
       VERCEL_URL: {
         exists: !!process.env.VERCEL_URL,
         value: process.env.VERCEL_URL
@@ -39,7 +43,8 @@ export async function GET() {
       process.env.NEXT_PUBLIC_SUPABASE_URL && 
       process.env.SUPABASE_SERVICE_ROLE_KEY
     ),
-    aiEnabled: !!process.env.OPENAI_API_KEY
+    aiEnabled: !!process.env.OPENAI_API_KEY,
+    crawlEnabled: !!process.env.FIRECRAWL_API_KEY
   }
 
   return NextResponse.json(envCheck)
