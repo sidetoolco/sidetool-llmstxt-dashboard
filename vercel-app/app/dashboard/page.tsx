@@ -10,6 +10,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useLocalFirst, localCache } from '@/lib/localCache'
 import { measurePerformance, debounce, formatBytes, prefetch } from '@/lib/utils'
 import { PerformanceMonitor } from '@/components/Performance/PerformanceMonitor'
+import { Logo, BrandPattern } from '@/components/Brand/Logo'
 
 interface Job {
   id: string
@@ -210,20 +211,19 @@ export default function EnhancedDashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen mesh-gradient relative overflow-hidden">
+      <BrandPattern className="opacity-10" />
       <PerformanceMonitor />
       
-      {/* Header with smooth animations */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
+      {/* Header with glass effect */}
+      <header className="glass-card sticky top-0 z-20 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                SideGSO Dashboard
-              </h1>
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-6">
+              <Logo variant="gradient" size="md" showText={true} />
               {isStale && (
-                <span className="ml-3 text-xs text-yellow-600 dark:text-yellow-400">
-                  • Offline mode
+                <span className="ml-3 px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">
+                  Offline mode
                 </span>
               )}
             </div>
@@ -231,7 +231,7 @@ export default function EnhancedDashboard() {
             <div className="flex items-center gap-4">
               <RippleButton
                 onClick={refresh}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
                 aria-label="Refresh"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,26 +241,28 @@ export default function EnhancedDashboard() {
                 </svg>
               </RippleButton>
               
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {user?.email}
-              </span>
+              <div className="glass-card px-4 py-2 rounded-full">
+                <span className="text-sm text-gray-700">
+                  {user?.email}
+                </span>
+              </div>
               
-              <RippleButton
+              <button
                 onClick={() => supabase.auth.signOut()}
-                className="px-3 py-1 text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                className="btn-brand text-sm"
               >
                 Sign out
-              </RippleButton>
+              </button>
             </div>
           </div>
         </div>
       </header>
       
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* New crawl card with micro-interactions */}
-        <HoverCard className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+        {/* New crawl card with glass effect */}
+        <div className="glass-card card-hover p-8 mb-8">
+          <h2 className="text-2xl font-bold gradient-text mb-6 display-font">
             Start New Crawl
           </h2>
           
@@ -276,9 +278,9 @@ export default function EnhancedDashboard() {
                 onChange={(e) => setNewDomain(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && startCrawl()}
                 placeholder="example.com"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                  dark:bg-gray-700 dark:text-white transition-all duration-200"
+                className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                  transition-all duration-200 gradient-border"
               />
             </div>
             
@@ -296,12 +298,11 @@ export default function EnhancedDashboard() {
               />
             </div>
             
-            <RippleButton
+            <button
               onClick={startCrawl}
               disabled={isCreating || !newDomain}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md 
-                hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed
-                transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full btn-brand disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2 shimmer"
             >
               {isCreating ? (
                 <>
@@ -311,14 +312,14 @@ export default function EnhancedDashboard() {
               ) : (
                 'Start Crawl'
               )}
-            </RippleButton>
+            </button>
           </div>
-        </HoverCard>
+        </div>
         
-        {/* Jobs list with enhanced UI */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        {/* Jobs list with glass effect */}
+        <div className="glass-card rounded-xl overflow-hidden">
+          <div className="px-8 py-6 border-b border-white/10">
+            <h2 className="text-2xl font-bold gradient-text display-font">
               Recent Jobs
             </h2>
           </div>
@@ -328,69 +329,69 @@ export default function EnhancedDashboard() {
           ) : jobs && jobs.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900">
+                <thead className="glass-card">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Domain
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Progress
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Size
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Created
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="divide-y divide-white/10">
                   {jobs.map((job) => (
                     <tr 
                       key={job.id}
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150
-                        ${selectedJob === job.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                      className={`hover:bg-white/5 cursor-pointer transition-all duration-200
+                        ${selectedJob === job.id ? 'bg-indigo-500/10' : ''}`}
                       onClick={() => setSelectedJob(job.id)}
                       onMouseEnter={() => handleJobHover(job.id)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-medium text-gray-800">
                         {job.domain}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)}`}>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm">
+                        <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)} shimmer`}>
                           {job.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm">
                         <div className="w-32">
                           <SmoothProgress value={getProgress(job)} />
-                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          <span className="text-xs text-gray-600 mt-1">
                             {job.urls_processed}/{job.total_urls}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">
                         {formatBytes(job.total_content_size || 0)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">
                         {new Date(job.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <RippleButton
+                      <td className="px-6 py-5 whitespace-nowrap text-sm">
+                        <button
                           onClick={(e) => {
                             e.stopPropagation()
                             router.push(`/jobs/${job.id}`)
                           }}
-                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 px-3 py-1"
+                          className="gradient-text hover:opacity-80 px-3 py-1 font-medium transition-opacity"
                         >
                           View
-                        </RippleButton>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -398,15 +399,18 @@ export default function EnhancedDashboard() {
               </table>
             </div>
           ) : (
-            <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-              No jobs yet. Start your first crawl above!
+            <div className="px-6 py-16 text-center text-gray-600">
+              <div className="mb-4">
+                <Logo variant="gradient" size="lg" showText={false} className="mx-auto opacity-30" />
+              </div>
+              <p className="text-lg">No jobs yet. Start your first crawl above!</p>
             </div>
           )}
         </div>
         
         {/* Keyboard shortcuts hint */}
-        <div className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-          Press <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">?</kbd> for keyboard shortcuts
+        <div className="mt-6 text-center text-xs text-gray-600">
+          Press <kbd className="px-2 py-1 glass-card rounded text-indigo-600 font-medium">?</kbd> for keyboard shortcuts
         </div>
       </main>
       

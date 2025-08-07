@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
+import { Logo, BrandPattern } from '@/components/Brand/Logo'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -45,30 +46,28 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen mesh-gradient relative overflow-hidden flex items-center justify-center px-4">
+      <BrandPattern className="opacity-5" />
+      <div className="max-w-md w-full relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">S</span>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">SideGSO</h1>
+          <div className="flex justify-center mb-6">
+            <Logo variant="gradient" size="xl" showText={true} className="animate-fade-in" />
           </div>
-          <p className="text-gray-600">
-            {mode === 'signin' ? 'Sign in to your account' : 
-             mode === 'signup' ? 'Create a new account' : 
+          <p className="text-gray-700 text-lg">
+            {mode === 'signin' ? 'Welcome back! Sign in to continue' : 
+             mode === 'signup' ? 'Start generating AI-ready content' : 
              'Reset your password'}
           </p>
         </div>
 
-        {/* Auth Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        {/* Auth Form with glass effect */}
+        <div className="glass-card rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                   Name
                 </label>
                 <input
@@ -76,14 +75,16 @@ export default function AuthPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                    transition-all duration-200 gradient-border"
                   placeholder="John Doe"
                 />
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
               <input
@@ -92,14 +93,16 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                  transition-all duration-200 gradient-border"
                 placeholder="you@example.com"
               />
             </div>
 
             {mode !== 'reset' && (
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
                 <input
@@ -108,20 +111,22 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                    transition-all duration-200 gradient-border"
                   placeholder="••••••••"
                 />
               </div>
             )}
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <div className="p-3 bg-red-50/80 backdrop-blur border border-red-200 rounded-lg text-red-700 text-sm animate-fade-in">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+              <div className="p-3 bg-green-50/80 backdrop-blur border border-green-200 rounded-lg text-green-700 text-sm animate-fade-in">
                 {success}
               </div>
             )}
@@ -129,7 +134,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-600 transition-colors disabled:opacity-50"
+              className="w-full btn-brand py-3 disabled:opacity-50 shimmer"
             >
               {loading ? 'Processing...' : 
                mode === 'signin' ? 'Sign In' : 
@@ -144,25 +149,25 @@ export default function AuthPage() {
               <>
                 <button
                   onClick={() => setMode('reset')}
-                  className="text-blue-600 hover:underline"
+                  className="gradient-text hover:opacity-80 transition-opacity"
                 >
                   Forgot password?
                 </button>
                 <span className="text-gray-500 mx-2">•</span>
-                <span className="text-gray-500">Don't have an account? </span>
+                <span className="text-gray-600">Don't have an account? </span>
                 <button
                   onClick={() => setMode('signup')}
-                  className="text-blue-600 hover:underline"
+                  className="gradient-text hover:opacity-80 transition-opacity font-medium"
                 >
                   Sign up
                 </button>
               </>
             ) : mode === 'signup' ? (
               <>
-                <span className="text-gray-500">Already have an account? </span>
+                <span className="text-gray-600">Already have an account? </span>
                 <button
                   onClick={() => setMode('signin')}
-                  className="text-blue-600 hover:underline"
+                  className="gradient-text hover:opacity-80 transition-opacity font-medium"
                 >
                   Sign in
                 </button>
@@ -170,7 +175,7 @@ export default function AuthPage() {
             ) : (
               <button
                 onClick={() => setMode('signin')}
-                className="text-blue-600 hover:underline"
+                className="gradient-text hover:opacity-80 transition-opacity font-medium"
               >
                 Back to sign in
               </button>
