@@ -17,6 +17,17 @@ export async function POST(request: Request) {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
+    // Check if job exists and get status
+    const { data: job } = await supabase
+      .from('crawl_jobs')
+      .select('*')
+      .eq('id', job_id)
+      .single()
+    
+    if (!job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+    
     // Check rate limit for Firecrawl
     const { success: canProceed } = await firecrawlRateLimiter.limit(`job:${job_id}`)
     if (!canProceed) {
@@ -26,16 +37,160 @@ export async function POST(request: Request) {
       })
     }
     
-    // Get next URL from queue
+    // Get next URL from queue (or handle no-Redis case)
     const url = await getNextUrlFromQueue(job_id)
     
+    // If no URL from queue, check if we should generate files
     if (!url) {
-      // No more URLs to process - generate files
-      await generateFiles(job_id, supabase)
-      return NextResponse.json({ 
-        message: 'Queue empty - files generated',
-        completed: true 
-      })
+      // Check if there are any pending URLs in the database
+      const { data: pendingUrls } = await supabase
+        .from('crawled_urls')
+        .select('url')
+        .eq('job_id', job_id)
+        .eq('status', 'pending')
+        .limit(1)
+      
+      if (pendingUrls && pendingUrls.length > 0) {
+        // Process the first pending URL directly
+        const urlToProcess = pendingUrls[0].url
+        console.log(`Processing ${urlToProcess} for job ${job_id} (no Redis queue)`)
+        
+        // Process this URL (continue with existing processing logic)
+        const processUrl = urlToProcess
+        
+        try {
+          // Scrape the URL using Firecrawl
+          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${firecrawlApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              url: processUrl,
+              formats: ['markdown']
+            })
+          })
+          
+          if (!scrapeResponse.ok) {
+            throw new Error(`Firecrawl error: ${scrapeResponse.status}`)
+          }
+          
+          const scrapeData = await scrapeResponse.json()
+          const markdown = scrapeData.data?.markdown || ''
+          const pageTitle = scrapeData.data?.metadata?.title || 'Untitled'
+          const description = scrapeData.data?.metadata?.description || 'No description'
+          
+          // Generate AI summary if OpenAI is configured
+          let title = pageTitle
+          let summary = description
+          
+          if (openaiApiKey && markdown) {
+            try {
+              const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${openaiApiKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  messages: [
+                    {
+                      role: 'system',
+                      content: 'Generate a concise title (3-4 words) and description (9-10 words). Format: Title: [title]\nDescription: [description]'
+                    },
+                    {
+                      role: 'user',
+                      content: markdown.substring(0, 1500)
+                    }
+                  ],
+                  temperature: 0.3,
+                  max_tokens: 50
+                })
+              })
+              
+              if (summaryResponse.ok) {
+                const data = await summaryResponse.json()
+                const output = data.choices[0].message.content
+                const lines = output.split('\n')
+                title = lines[0]?.replace('Title: ', '').trim() || title
+                summary = lines[1]?.replace('Description: ', '').trim() || summary
+              }
+            } catch (err) {
+              console.error('OpenAI error:', err)
+            }
+          }
+          
+          // Update URL record
+          await supabase
+            .from('crawled_urls')
+            .update({
+              status: 'completed',
+              title: title.substring(0, 100),
+              description: summary.substring(0, 200),
+              content: markdown.substring(0, 50000),
+              content_size: new TextEncoder().encode(markdown).length,
+              crawled_at: new Date().toISOString()
+            })
+            .eq('job_id', job_id)
+            .eq('url', processUrl)
+          
+          // Update job progress
+          const { data: completedUrls } = await supabase
+            .from('crawled_urls')
+            .select('id')
+            .eq('job_id', job_id)
+            .eq('status', 'completed')
+          
+          await supabase
+            .from('crawl_jobs')
+            .update({
+              urls_processed: completedUrls?.length || 0
+            })
+            .eq('id', job_id)
+          
+          // Check if there are more pending URLs
+          const { data: morePending } = await supabase
+            .from('crawled_urls')
+            .select('url')
+            .eq('job_id', job_id)
+            .eq('status', 'pending')
+            .limit(1)
+          
+          return NextResponse.json({
+            message: `Processed ${processUrl}`,
+            remaining: morePending?.length || 0,
+            continue: morePending && morePending.length > 0
+          })
+          
+        } catch (error: any) {
+          console.error(`Error processing ${processUrl}:`, error)
+          
+          // Mark URL as failed
+          await supabase
+            .from('crawled_urls')
+            .update({
+              status: 'failed',
+              error_message: error.message
+            })
+            .eq('job_id', job_id)
+            .eq('url', processUrl)
+          
+          return NextResponse.json({
+            message: `Failed to process ${processUrl}`,
+            error: error.message,
+            continue: true
+          })
+        }
+      } else {
+        // No pending URLs - generate files
+        await generateFiles(job_id, supabase)
+        return NextResponse.json({ 
+          message: 'All URLs processed - files generated',
+          completed: true 
+        })
+      }
     }
     
     // Process the URL
@@ -113,6 +268,7 @@ export async function POST(request: Request) {
           title: title.substring(0, 100),
           description: summary.substring(0, 200),
           content: markdown.substring(0, 50000),
+          content_size: new TextEncoder().encode(markdown).length,
           crawled_at: new Date().toISOString()
         })
         .eq('job_id', job_id)
@@ -252,18 +408,34 @@ async function generateFiles(jobId: string, supabase: any) {
   })
   
   // Store all files
-  await supabase
+  const { data: insertedFiles, error: insertError } = await supabase
     .from('generated_files')
     .insert(filesToInsert)
+    .select()
+  
+  if (insertError) {
+    console.error('Error inserting files:', insertError)
+    throw new Error(`Failed to save files: ${insertError.message}`)
+  }
+  
+  console.log(`Successfully inserted ${insertedFiles?.length || 0} files`)
+  
+  // Calculate total content size
+  const totalSize = filesToInsert.reduce((sum, file) => sum + file.file_size, 0)
   
   // Mark job as completed
-  await supabase
+  const { error: updateError } = await supabase
     .from('crawl_jobs')
     .update({
       status: 'completed',
-      completed_at: new Date().toISOString()
+      completed_at: new Date().toISOString(),
+      total_content_size: totalSize
     })
     .eq('id', jobId)
+  
+  if (updateError) {
+    console.error('Error updating job status:', updateError)
+  }
   
   console.log(`Generated ${filesToInsert.length} files for job ${jobId}`)
 }

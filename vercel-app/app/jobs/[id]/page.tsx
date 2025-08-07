@@ -60,20 +60,34 @@ export default function JobDetailsPage() {
   useEffect(() => {
     if (user && params.id) {
       loadJobDetails()
+      
+      // Set up auto-refresh for active jobs
+      const jobId = String(params.id).replace(/^eq\./, '')
+      const interval = setInterval(async () => {
+        // Only refresh if job might still be active
+        if (job && ['pending', 'mapping', 'crawling', 'processing'].includes(job.status)) {
+          loadJobDetails()
+        }
+      }, 5000) // Refresh every 5 seconds
+      
+      return () => clearInterval(interval)
     }
-  }, [user, params.id])
+  }, [user, params.id, job?.status])
 
   const loadJobDetails = async () => {
     if (!user || !params.id) return
     
     setLoading(true)
     
+    // Clean the job ID in case it has any prefixes
+    const jobId = String(params.id).replace(/^eq\./, '')
+    
     try {
       // Load job details
       const { data: jobData, error: jobError } = await supabase
         .from('crawl_jobs')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', jobId)
         .eq('user_id', user.id)
         .single()
       
@@ -88,7 +102,7 @@ export default function JobDetailsPage() {
       const { data: filesData } = await supabase
         .from('generated_files')
         .select('*')
-        .eq('job_id', params.id)
+        .eq('job_id', jobId)
         .order('file_type')
       
       setFiles(filesData || [])
@@ -97,7 +111,7 @@ export default function JobDetailsPage() {
       const { data: urlsData } = await supabase
         .from('crawled_urls')
         .select('url, title, description, status, content_size, error_message')
-        .eq('job_id', params.id)
+        .eq('job_id', jobId)
         .order('url')
       
       setUrls(urlsData || [])
