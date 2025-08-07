@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { supabase } from '@/components/Auth/AuthProvider'
 import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton'
-import { RippleButton, HoverCard, SmoothProgress, Toast, Spinner } from '@/components/ui/MicroInteractions'
+import { RippleButton, HoverCard, SmoothProgress, Toast } from '@/components/ui/MicroInteractions'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useLocalFirst, localCache } from '@/lib/localCache'
 import { measurePerformance, debounce, formatBytes, prefetch } from '@/lib/utils'
 import { PerformanceMonitor } from '@/components/Performance/PerformanceMonitor'
-import { Logo, BrandPattern } from '@/components/Brand/Logo'
+import { RayLogo } from '@/components/Brand/RayLogo'
 
 interface Job {
   id: string
@@ -211,45 +211,42 @@ export default function EnhancedDashboard() {
   }
   
   return (
-    <div className="min-h-screen mesh-gradient relative overflow-hidden">
-      <BrandPattern className="opacity-10" />
+    <div className="min-h-screen bg-ray-black">
       <PerformanceMonitor />
       
-      {/* Header with glass effect */}
-      <header className="glass-card sticky top-0 z-20 border-b border-white/10">
+      {/* Header */}
+      <header className="bg-ray-gray-950 border-b border-ray-gray-800 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
-              <Logo variant="gradient" size="md" showText={true} />
+              <RayLogo size="sm" showText={true} />
               {isStale && (
-                <span className="ml-3 px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">
-                  Offline mode
+                <span className="badge-ray yellow">
+                  Offline
                 </span>
               )}
             </div>
             
-            <div className="flex items-center gap-4">
-              <RippleButton
+            <div className="flex items-center gap-3">
+              <button
                 onClick={refresh}
-                className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                className="p-1.5 text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
                 aria-label="Refresh"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
                   />
                 </svg>
-              </RippleButton>
+              </button>
               
-              <div className="glass-card px-4 py-2 rounded-full">
-                <span className="text-sm text-gray-700">
-                  {user?.email}
-                </span>
-              </div>
+              <span className="text-xs text-ray-gray-500">
+                {user?.email}
+              </span>
               
               <button
                 onClick={() => supabase.auth.signOut()}
-                className="btn-brand text-sm"
+                className="btn-ray-secondary text-xs"
               >
                 Sign out
               </button>
@@ -259,16 +256,16 @@ export default function EnhancedDashboard() {
       </header>
       
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {/* New crawl card with glass effect */}
-        <div className="glass-card card-hover p-8 mb-8">
-          <h2 className="text-2xl font-bold gradient-text mb-6 display-font">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* New crawl card */}
+        <div className="ray-card p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
             Start New Crawl
           </h2>
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="new-crawl-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="new-crawl-input" className="block text-xs font-medium text-ray-gray-400 mb-2">
                 Website Domain
               </label>
               <input
@@ -278,15 +275,13 @@ export default function EnhancedDashboard() {
                 onChange={(e) => setNewDomain(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && startCrawl()}
                 placeholder="example.com"
-                className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                  transition-all duration-200 gradient-border"
+                className="input-ray"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Max Pages: {maxPages}
+              <label className="block text-xs font-medium text-ray-gray-400 mb-2">
+                Max Pages: <span className="text-ray-red font-semibold">{maxPages}</span>
               </label>
               <input
                 type="range"
@@ -294,19 +289,19 @@ export default function EnhancedDashboard() {
                 max="50"
                 value={maxPages}
                 onChange={(e) => setMaxPages(Number(e.target.value))}
-                className="w-full"
+                className="w-full accent-ray-red"
               />
             </div>
             
             <button
               onClick={startCrawl}
               disabled={isCreating || !newDomain}
-              className="w-full btn-brand disabled:opacity-50 disabled:cursor-not-allowed
-                flex items-center justify-center gap-2 shimmer"
+              className="w-full btn-ray disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2"
             >
               {isCreating ? (
                 <>
-                  <Spinner size="sm" />
+                  <div className="ray-loading" />
                   Starting...
                 </>
               ) : (
@@ -316,10 +311,10 @@ export default function EnhancedDashboard() {
           </div>
         </div>
         
-        {/* Jobs list with glass effect */}
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-8 py-6 border-b border-white/10">
-            <h2 className="text-2xl font-bold gradient-text display-font">
+        {/* Jobs list */}
+        <div className="ray-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-ray-gray-800">
+            <h2 className="text-lg font-semibold text-white">
               Recent Jobs
             </h2>
           </div>
@@ -329,66 +324,68 @@ export default function EnhancedDashboard() {
           ) : jobs && jobs.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="glass-card">
+                <thead className="bg-ray-gray-900">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Domain
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Progress
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Size
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Created
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-ray-gray-800">
                   {jobs.map((job) => (
                     <tr 
                       key={job.id}
-                      className={`hover:bg-white/5 cursor-pointer transition-all duration-200
-                        ${selectedJob === job.id ? 'bg-indigo-500/10' : ''}`}
+                      className={`hover:bg-ray-gray-900 cursor-pointer transition-all duration-200
+                        ${selectedJob === job.id ? 'bg-ray-gray-900' : ''}`}
                       onClick={() => setSelectedJob(job.id)}
                       onMouseEnter={() => handleJobHover(job.id)}
                     >
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-medium text-gray-800">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-ray-gray-100">
                         {job.domain}
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm">
-                        <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)} shimmer`}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`badge-ray ${job.status === 'completed' ? 'green' : job.status === 'failed' ? 'red' : 'yellow'}`}>
                           {job.status}
                         </span>
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <div className="w-32">
-                          <SmoothProgress value={getProgress(job)} />
-                          <span className="text-xs text-gray-600 mt-1">
+                          <div className="progress-ray">
+                            <div className="progress-ray-bar" style={{ width: `${getProgress(job)}%` }} />
+                          </div>
+                          <span className="text-xs text-ray-gray-500 mt-1">
                             {job.urls_processed}/{job.total_urls}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-ray-gray-400">
                         {formatBytes(job.total_content_size || 0)}
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-ray-gray-400">
                         {new Date(job.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             router.push(`/jobs/${job.id}`)
                           }}
-                          className="gradient-text hover:opacity-80 px-3 py-1 font-medium transition-opacity"
+                          className="text-ray-red hover:text-ray-red/80 font-medium transition-colors"
                         >
                           View
                         </button>
@@ -399,18 +396,15 @@ export default function EnhancedDashboard() {
               </table>
             </div>
           ) : (
-            <div className="px-6 py-16 text-center text-gray-600">
-              <div className="mb-4">
-                <Logo variant="gradient" size="lg" showText={false} className="mx-auto opacity-30" />
-              </div>
-              <p className="text-lg">No jobs yet. Start your first crawl above!</p>
+            <div className="px-6 py-12 text-center text-ray-gray-500">
+              <p className="text-sm">No jobs yet. Start your first crawl above.</p>
             </div>
           )}
         </div>
         
         {/* Keyboard shortcuts hint */}
-        <div className="mt-6 text-center text-xs text-gray-600">
-          Press <kbd className="px-2 py-1 glass-card rounded text-indigo-600 font-medium">?</kbd> for keyboard shortcuts
+        <div className="mt-4 text-center text-xs text-ray-gray-600">
+          Press <kbd className="kbd">?</kbd> for keyboard shortcuts
         </div>
       </main>
       

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
-import { Logo, BrandPattern } from '@/components/Brand/Logo'
+import { RayLogo, RayLogoMark } from '@/components/Brand/RayLogo'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -46,28 +46,28 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen mesh-gradient relative overflow-hidden flex items-center justify-center px-4">
-      <BrandPattern className="opacity-5" />
-      <div className="max-w-md w-full relative z-10">
+    <div className="min-h-screen bg-ray-black flex items-center justify-center px-4">
+      <div className="max-w-sm w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <Logo variant="gradient" size="xl" showText={true} className="animate-fade-in" />
+          <div className="flex justify-center mb-4">
+            <RayLogoMark size={48} />
           </div>
-          <p className="text-gray-700 text-lg">
-            {mode === 'signin' ? 'Welcome back! Sign in to continue' : 
-             mode === 'signup' ? 'Start generating AI-ready content' : 
+          <h1 className="text-2xl font-semibold text-white mb-2">SideGSO</h1>
+          <p className="text-ray-gray-400 text-sm">
+            {mode === 'signin' ? 'Sign in to your account' : 
+             mode === 'signup' ? 'Create a new account' : 
              'Reset your password'}
           </p>
         </div>
 
-        {/* Auth Form with glass effect */}
-        <div className="glass-card rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+        {/* Auth Form */}
+        <div className="ray-card p-6">
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="name" className="block text-xs font-medium text-ray-gray-400 mb-2">
                   Name
                 </label>
                 <input
@@ -75,16 +75,14 @@ export default function AuthPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
-                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                    transition-all duration-200 gradient-border"
+                  className="input-ray"
                   placeholder="John Doe"
                 />
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-xs font-medium text-ray-gray-400 mb-2">
                 Email
               </label>
               <input
@@ -93,16 +91,14 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                  transition-all duration-200 gradient-border"
+                className="input-ray"
                 placeholder="you@example.com"
               />
             </div>
 
             {mode !== 'reset' && (
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-xs font-medium text-ray-gray-400 mb-2">
                   Password
                 </label>
                 <input
@@ -111,22 +107,20 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 glass-card rounded-lg text-gray-900 placeholder-gray-500
-                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                    transition-all duration-200 gradient-border"
+                  className="input-ray"
                   placeholder="••••••••"
                 />
               </div>
             )}
 
             {error && (
-              <div className="p-3 bg-red-50/80 backdrop-blur border border-red-200 rounded-lg text-red-700 text-sm animate-fade-in">
+              <div className="toast-ray border-ray-red text-ray-red text-xs">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="p-3 bg-green-50/80 backdrop-blur border border-green-200 rounded-lg text-green-700 text-sm animate-fade-in">
+              <div className="toast-ray border-ray-green text-ray-green text-xs">
                 {success}
               </div>
             )}
@@ -134,40 +128,46 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-brand py-3 disabled:opacity-50 shimmer"
+              className="w-full btn-ray disabled:opacity-50"
             >
-              {loading ? 'Processing...' : 
+              {loading ? (
+                <>
+                  <div className="ray-loading" />
+                  Processing...
+                </>
+              ) : (
                mode === 'signin' ? 'Sign In' : 
                mode === 'signup' ? 'Create Account' : 
-               'Send Reset Email'}
+               'Send Reset Email'
+              )}
             </button>
           </form>
 
           {/* Mode Switcher */}
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-6 text-center text-xs">
             {mode === 'signin' ? (
               <>
                 <button
                   onClick={() => setMode('reset')}
-                  className="gradient-text hover:opacity-80 transition-opacity"
+                  className="text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
                 >
                   Forgot password?
                 </button>
-                <span className="text-gray-500 mx-2">•</span>
-                <span className="text-gray-600">Don't have an account? </span>
+                <span className="text-ray-gray-600 mx-2">•</span>
+                <span className="text-ray-gray-500">Don't have an account? </span>
                 <button
                   onClick={() => setMode('signup')}
-                  className="gradient-text hover:opacity-80 transition-opacity font-medium"
+                  className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
                 >
                   Sign up
                 </button>
               </>
             ) : mode === 'signup' ? (
               <>
-                <span className="text-gray-600">Already have an account? </span>
+                <span className="text-ray-gray-500">Already have an account? </span>
                 <button
                   onClick={() => setMode('signin')}
-                  className="gradient-text hover:opacity-80 transition-opacity font-medium"
+                  className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
                 >
                   Sign in
                 </button>
@@ -175,7 +175,7 @@ export default function AuthPage() {
             ) : (
               <button
                 onClick={() => setMode('signin')}
-                className="gradient-text hover:opacity-80 transition-opacity font-medium"
+                className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
               >
                 Back to sign in
               </button>

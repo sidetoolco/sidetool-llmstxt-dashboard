@@ -1,7 +1,4 @@
-@import '../styles/design-tokens.css';
-@import '../styles/tokens.css';
-@import '../styles/animations.css';
-@import '../styles/brand.css';
+@import '../styles/raycast.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
