@@ -184,12 +184,46 @@ export async function POST(request: Request) {
           })
         }
       } else {
-        // No pending URLs - generate files
-        await generateFiles(job_id, supabase)
-        return NextResponse.json({ 
-          message: 'All URLs processed - files generated',
-          completed: true 
-        })
+        // No pending URLs - only generate files if this is the last job to complete
+        // Check if all URLs have been processed
+        const { data: allUrls } = await supabase
+          .from('crawled_urls')
+          .select('status')
+          .eq('job_id', job_id)
+        
+        const pendingCount = allUrls?.filter(u => u.status === 'pending').length || 0
+        const completedCount = allUrls?.filter(u => u.status === 'completed').length || 0
+        
+        if (pendingCount === 0 && completedCount > 0) {
+          // Check if files already exist
+          const { data: existingFiles } = await supabase
+            .from('generated_files')
+            .select('id')
+            .eq('job_id', job_id)
+            .limit(1)
+          
+          if (!existingFiles || existingFiles.length === 0) {
+            // Only generate files if they don't exist yet
+            await generateFiles(job_id, supabase)
+            return NextResponse.json({ 
+              message: 'All URLs processed - files generated',
+              completed: true 
+            })
+          } else {
+            return NextResponse.json({ 
+              message: 'All URLs processed - files already exist',
+              completed: true,
+              files_exist: true
+            })
+          }
+        } else {
+          return NextResponse.json({ 
+            message: 'No more URLs in queue',
+            completed: false,
+            pending: pendingCount,
+            completed_urls: completedCount
+          })
+        }
       }
     }
     
@@ -305,6 +339,38 @@ export async function POST(request: Request) {
     // Check remaining queue
     const remaining = await getQueueLength(job_id)
     
+    // If no more URLs in queue, check if we should generate files
+    if (remaining === 0) {
+      // Check if all URLs are completed
+      const { data: allUrls } = await supabase
+        .from('crawled_urls')
+        .select('status')
+        .eq('job_id', job_id)
+      
+      const pendingCount = allUrls?.filter(u => u.status === 'pending').length || 0
+      const completedCount = allUrls?.filter(u => u.status === 'completed').length || 0
+      
+      if (pendingCount === 0 && completedCount > 0) {
+        // Check if files already exist
+        const { data: existingFiles } = await supabase
+          .from('generated_files')
+          .select('id')
+          .eq('job_id', job_id)
+          .limit(1)
+        
+        if (!existingFiles || existingFiles.length === 0) {
+          // Generate files since all URLs are done
+          await generateFiles(job_id, supabase)
+          return NextResponse.json({
+            message: `Processed last URL and generated files`,
+            remaining: 0,
+            completed: true,
+            files_generated: true
+          })
+        }
+      }
+    }
+    
     return NextResponse.json({
       message: `Processed ${url}`,
       remaining,
@@ -318,43 +384,65 @@ export async function POST(request: Request) {
 }
 
 async function generateFiles(jobId: string, supabase: any) {
-  // Get job info
-  const { data: job } = await supabase
-    .from('crawl_jobs')
-    .select('*')
-    .eq('id', jobId)
-    .single()
-  
-  // Get all completed URLs
-  const { data: urls } = await supabase
-    .from('crawled_urls')
-    .select('*')
-    .eq('job_id', jobId)
-    .eq('status', 'completed')
-    .order('url')
-  
-  if (!urls || urls.length === 0) {
-    console.log('No completed URLs to generate files from')
-    return
-  }
-  
-  const filesToInsert = []
-  
-  // Generate individual llms.txt file for each page
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i]
-    // Extract page name from URL for filename
-    const urlPath = new URL(url.url).pathname
-    let pageName = urlPath.split('/').filter(Boolean).pop() || 'index'
+  try {
+    console.log(`Starting file generation for job ${jobId}`)
     
-    // Ensure unique file names by adding index if needed
-    const existingFileNames = filesToInsert.map(f => f.file_path)
-    let fileName = `${job.domain}/${pageName}-llms.txt`
-    let counter = 1
-    while (existingFileNames.includes(fileName)) {
-      fileName = `${job.domain}/${pageName}-${counter}-llms.txt`
-      counter++
+    // Get job info
+    const { data: job } = await supabase
+      .from('crawl_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single()
+    
+    if (!job) {
+      console.error(`Job ${jobId} not found`)
+      return
     }
+    
+    // Get all completed URLs
+    const { data: urls } = await supabase
+      .from('crawled_urls')
+      .select('*')
+      .eq('job_id', jobId)
+      .eq('status', 'completed')
+      .order('url')
+    
+    if (!urls || urls.length === 0) {
+      console.log('No completed URLs to generate files from')
+      return
+    }
+    
+    // Check if files already exist to avoid duplicates
+    const { data: existingFiles } = await supabase
+      .from('generated_files')
+      .select('id')
+      .eq('job_id', jobId)
+      .limit(1)
+    
+    if (existingFiles && existingFiles.length > 0) {
+      console.log(`Files already exist for job ${jobId}, skipping generation`)
+      return
+    }
+    
+    const filesToInsert = []
+    const usedPaths = new Set<string>()
+    
+    // Generate individual llms.txt file for each page
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i]
+      // Extract page name from URL for filename
+      const urlPath = new URL(url.url).pathname
+      let pageName = urlPath.split('/').filter(Boolean).join('-') || 'index'
+      pageName = pageName.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+      
+      // Ensure unique file names
+      let fileName = `${job.domain}/${pageName}-llms.txt`
+      let counter = 1
+      while (usedPaths.has(fileName)) {
+        fileName = `${job.domain}/${pageName}-${counter}-llms.txt`
+        counter++
+      }
+      usedPaths.add(fileName)
     
     // Generate individual llms.txt content
     let pageContent = `# ${url.title}\n\n`
@@ -417,11 +505,7 @@ async function generateFiles(jobId: string, supabase: any) {
     content: indexContent
   })
   
-  // Delete any existing files for this job first (to avoid constraint violations)
-  await supabase
-    .from('generated_files')
-    .delete()
-    .eq('job_id', jobId)
+  // No need to delete - we already checked files don't exist
   
   // Store all files
   const { data: insertedFiles, error: insertError } = await supabase
@@ -454,4 +538,8 @@ async function generateFiles(jobId: string, supabase: any) {
   }
   
   console.log(`Generated ${filesToInsert.length} files for job ${jobId}`)
+  } catch (error: any) {
+    console.error(`Error generating files for job ${jobId}:`, error)
+    throw error
+  }
 }
