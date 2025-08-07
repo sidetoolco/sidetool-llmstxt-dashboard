@@ -99,12 +99,17 @@ export default function JobDetailsPage() {
       setJob(jobData)
       
       // Load generated files
-      const { data: filesData } = await supabase
+      const { data: filesData, error: filesError } = await supabase
         .from('generated_files')
         .select('*')
         .eq('job_id', jobId)
         .order('file_type')
       
+      if (filesError) {
+        console.error('Error loading files:', filesError)
+      }
+      
+      console.log(`Loaded ${filesData?.length || 0} files for job ${jobId}`)
       setFiles(filesData || [])
       
       // Load crawled URLs
