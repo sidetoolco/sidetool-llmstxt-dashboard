@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { supabase } from '@/components/Auth/AuthProvider'
+import { RayLogo } from '@/components/Brand/RayLogo'
 
 interface GeneratedFile {
   id: string
@@ -170,65 +171,79 @@ export default function JobDetailsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-ray-black flex items-center justify-center">
+        <div className="ray-loading" style={{ width: 32, height: 32 }}></div>
       </div>
     )
   }
 
   if (!job) {
-    return null
+    return (
+      <div className="min-h-screen bg-ray-black flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-white mb-4">Job not found</h2>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="btn-ray"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ray-black">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-ray-gray-950 border-b border-ray-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">{job.domain}</h1>
-                <p className="text-xs text-gray-500">Job ID: {job.id.substring(0, 8)}</p>
+                <h1 className="text-lg font-semibold text-white">{job.domain}</h1>
+                <p className="text-xs text-ray-gray-500">Job ID: {job.id.substring(0, 8)}</p>
               </div>
             </div>
             
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.email}</span>
+              <span className="text-xs text-ray-gray-500">{user?.email}</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Job Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Summary</h2>
+        <div className="ray-card p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Job Summary</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Status</p>
-              <p className="font-medium text-gray-900 capitalize">{job.status}</p>
+              <p className="text-xs text-ray-gray-500 mb-1">Status</p>
+              <span className={`badge-ray ${job.status === 'completed' ? 'green' : job.status === 'failed' ? 'red' : 'yellow'}`}>
+                {job.status}
+              </span>
             </div>
             <div>
-              <p className="text-sm text-gray-500">URLs Processed</p>
-              <p className="font-medium text-gray-900">{job.urls_processed} / {job.total_urls}</p>
+              <p className="text-xs text-ray-gray-500 mb-1">URLs Processed</p>
+              <p className="font-medium text-ray-gray-100">{job.urls_processed} / {job.total_urls}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Size</p>
-              <p className="font-medium text-gray-900">{formatBytes(job.total_content_size || 0)}</p>
+              <p className="text-xs text-ray-gray-500 mb-1">Total Size</p>
+              <p className="font-medium text-ray-gray-100">{formatBytes(job.total_content_size || 0)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Completed</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-xs text-ray-gray-500 mb-1">Completed</p>
+              <p className="font-medium text-ray-gray-100">
                 {job.completed_at ? new Date(job.completed_at).toLocaleString() : 'In Progress'}
               </p>
             </div>
@@ -236,24 +251,24 @@ export default function JobDetailsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-ray-gray-800 mb-6">
+          <nav className="-mb-px flex space-x-6">
             <button
               onClick={() => setActiveTab('files')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'files'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-ray-red text-ray-red'
+                  : 'border-transparent text-ray-gray-400 hover:text-ray-gray-100'
               }`}
             >
               Generated Files ({files.length})
             </button>
             <button
               onClick={() => setActiveTab('urls')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'urls'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-ray-red text-ray-red'
+                  : 'border-transparent text-ray-gray-400 hover:text-ray-gray-100'
               }`}
             >
               Crawled URLs ({urls.length})
@@ -265,40 +280,40 @@ export default function JobDetailsPage() {
         {activeTab === 'files' ? (
           <div className="space-y-4">
             {files.map((file) => (
-              <div key={file.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div key={file.id} className="ray-card p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-base font-semibold text-white">
                       {file.file_path?.split('/').pop() || file.file_type}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs text-ray-gray-400 mt-1">
                       {formatBytes(file.file_size)} • Downloaded {file.download_count || 0} times
                     </p>
                     {file.file_path?.includes('index-llms.txt') && (
-                      <p className="text-xs text-blue-600 mt-1">Index file with links to all pages</p>
+                      <span className="badge-ray blue mt-2 inline-block">Index File</span>
                     )}
                   </div>
                   
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowPreview(showPreview === file.id ? null : file.id)}
-                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                      className="btn-ray-secondary text-xs"
                     >
                       {showPreview === file.id ? 'Hide' : 'Preview'}
                     </button>
                     <button
                       onClick={() => copyToClipboard(file.content, file.id)}
-                      className={`px-3 py-1 text-sm font-medium rounded border transition-colors ${
+                      className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
                         copiedFile === file.id
-                          ? 'bg-green-50 text-green-700 border-green-300'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-ray-green/20 text-ray-green border border-ray-green/30'
+                          : 'btn-ray-secondary'
                       }`}
                     >
                       {copiedFile === file.id ? 'Copied!' : 'Copy'}
                     </button>
                     <button
                       onClick={() => downloadFile(file)}
-                      className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                      className="btn-ray text-xs"
                     >
                       Download
                     </button>
@@ -306,8 +321,8 @@ export default function JobDetailsPage() {
                 </div>
                 
                 {showPreview === file.id && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg overflow-x-auto">
-                    <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap">
+                  <div className="mt-4 p-4 bg-ray-gray-900 rounded border border-ray-gray-800 overflow-x-auto">
+                    <pre className="text-xs text-ray-gray-300 font-mono whitespace-pre-wrap">
                       {file.content.substring(0, 1000)}
                       {file.content.length > 1000 && '\n\n... (truncated)'}
                     </pre>
@@ -317,58 +332,58 @@ export default function JobDetailsPage() {
             ))}
             
             {files.length === 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <p className="text-gray-500">No files generated yet. Files will appear here once the job is complete.</p>
+              <div className="ray-card p-12 text-center">
+                <p className="text-ray-gray-500">No files generated yet. Files will appear here once the job is complete.</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="ray-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-ray-gray-800">
+                <thead className="bg-ray-gray-900">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       URL
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Title
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-ray-gray-500 uppercase tracking-wider">
                       Size
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-ray-gray-800">
                   {urls.map((url, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                    <tr key={index} className="hover:bg-ray-gray-900 transition-colors">
+                      <td className="px-4 py-3 text-sm text-ray-gray-100">
                         <a 
                           href={url.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
+                          className="text-ray-red hover:text-ray-red/80 transition-colors"
                         >
                           {url.url.replace(/^https?:\/\//, '').substring(0, 50)}
                           {url.url.length > 50 && '...'}
                         </a>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-ray-gray-300">
                         {url.title || '-'}
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                          url.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          url.status === 'failed' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`badge-ray ${
+                          url.status === 'completed' ? 'green' :
+                          url.status === 'failed' ? 'red' :
+                          'yellow'
                         }`}>
                           {url.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-ray-gray-400">
                         {url.content_size ? formatBytes(url.content_size) : '-'}
                       </td>
                     </tr>
@@ -378,7 +393,7 @@ export default function JobDetailsPage() {
               
               {urls.length === 0 && (
                 <div className="p-12 text-center">
-                  <p className="text-gray-500">No URLs crawled yet.</p>
+                  <p className="text-ray-gray-500">No URLs crawled yet.</p>
                 </div>
               )}
             </div>
