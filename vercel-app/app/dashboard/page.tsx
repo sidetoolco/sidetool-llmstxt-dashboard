@@ -29,6 +29,13 @@ export default function EnhancedDashboard() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
+  
   // Local-first data fetching
   const fetchJobs = useCallback(async () => {
     if (!user) return []
@@ -112,39 +119,55 @@ export default function EnhancedDashboard() {
     }
   ])
   
-  // Debounced domain validation
-  const validateDomain = debounce((input: string) => {
+  // Domain validation
+  const validateDomain = (input: string) => {
+    if (!input) {
+      setToast({ message: 'Please enter a domain', type: 'error' })
+      return false
+    }
     const cleanDomain = input.replace(/^https?:\/\//, '').replace(/\/$/, '')
     const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i
     
     if (!domainRegex.test(cleanDomain)) {
-      setToast({ message: 'Please enter a valid domain', type: 'error' })
+      setToast({ message: 'Please enter a valid domain (e.g., example.com)', type: 'error' })
       return false
     }
     return true
-  }, 300)
+  }
   
   const startCrawl = async () => {
-    if (!user || !validateDomain(newDomain)) return
+    if (!user) {
+      setToast({ message: 'Please sign in to start a crawl', type: 'error' })
+      return
+    }
+    
+    if (!validateDomain(newDomain)) return
     
     setIsCreating(true)
     
     try {
-      const response = await measurePerformance(
-        'start_crawl',
-        () => fetch('/api/crawl/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            domain: newDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
-            max_pages: maxPages,
-            user_id: user.id
-          })
-        }),
-        2000
-      )
+      console.log('Starting crawl for:', newDomain)
+      const cleanDomain = newDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+      const requestBody = {
+        domain: cleanDomain,
+        max_pages: maxPages,
+        user_id: user.id
+      }
+      console.log('Request body:', requestBody)
       
+      const response = await fetch('/api/crawl/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+      
+      console.log('Response status:', response.status)
       const data = await response.json()
+      console.log('Response data:', data)
+      
+      if (!response.ok) {
+        throw new Error(data.message || `Server error: ${response.status}`)
+      }
       
       if (data.success && data.job) {
         setToast({ message: 'Crawl started successfully!', type: 'success' })
@@ -172,10 +195,11 @@ export default function EnhancedDashboard() {
           router.push(`/jobs/${data.job.id}`)
         }, 500)
       } else {
-        setToast({ message: data.message || 'Failed to start crawl', type: 'error' })
+        throw new Error(data.message || 'Failed to start crawl')
       }
-    } catch (error) {
-      setToast({ message: 'An error occurred', type: 'error' })
+    } catch (error: any) {
+      console.error('Start crawl error:', error)
+      setToast({ message: error.message || 'Failed to start crawl', type: 'error' })
     } finally {
       setIsCreating(false)
     }
@@ -197,15 +221,10 @@ export default function EnhancedDashboard() {
     return (job.urls_processed / job.total_urls) * 100
   }
   
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <SkeletonCard />
-          <div className="mt-8">
-            <SkeletonTable rows={5} columns={5} />
-          </div>
-        </div>
+      <div className="min-h-screen bg-ray-black flex items-center justify-center">
+        <div className="ray-loading" style={{ width: 32, height: 32 }}></div>
       </div>
     )
   }
