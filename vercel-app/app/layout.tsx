@@ -36,7 +36,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="theme-color" content="#2563eb" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-screen bg-gray-50 dark:bg-gray-900`}>
         <AuthProvider>
           {children}
         </AuthProvider>

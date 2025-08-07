@@ -1,396 +1,423 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { supabase } from '@/components/Auth/AuthProvider'
+import { SkeletonCard, SkeletonTable } from '@/components/UI/Skeleton'
+import { RippleButton, HoverCard, SmoothProgress, Toast, Spinner } from '@/components/UI/MicroInteractions'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useLocalFirst, localCache } from '@/lib/localCache'
+import { measurePerformance, debounce, formatBytes, prefetch } from '@/lib/utils'
+import { PerformanceMonitor } from '@/components/Performance/PerformanceMonitor'
 
-interface CrawlJob {
+interface Job {
   id: string
   domain: string
-  status: 'pending' | 'mapping' | 'crawling' | 'processing' | 'completed' | 'failed'
+  status: string
   max_pages: number
-  total_urls?: number
+  total_urls: number
   urls_crawled: number
   urls_processed: number
   created_at: string
   completed_at?: string
-  error_message?: string
-  llms_txt_id?: string
-  llms_full_txt_id?: string
+  total_content_size?: number
 }
 
-export default function Dashboard() {
-  const router = useRouter()
+export default function EnhancedDashboard() {
   const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   
-  const [domain, setDomain] = useState('')
-  const [maxPages, setMaxPages] = useState(20)
-  const [jobs, setJobs] = useState<CrawlJob[]>([])
-  const [activeJob, setActiveJob] = useState<CrawlJob | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth')
-    }
-  }, [user, authLoading, router])
-
-  // Load user's jobs
-  useEffect(() => {
-    if (user) {
-      loadJobs()
-      
-      // Set up real-time subscription for job updates
-      const subscription = supabase
-        .channel('job-updates')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'crawl_jobs',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          loadJobs()
-        })
-        .subscribe()
-
-      return () => {
-        subscription.unsubscribe()
-      }
-    }
-  }, [user])
-
-  const loadJobs = async () => {
-    if (!user) return
-
+  // Local-first data fetching
+  const fetchJobs = useCallback(async () => {
+    if (!user) return []
+    
     const { data, error } = await supabase
       .from('crawl_jobs')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10)
-
-    if (error) {
-      console.error('Error loading jobs:', error)
-      return
+    
+    if (error) throw error
+    return data || []
+  }, [user])
+  
+  const { 
+    data: jobs, 
+    loading, 
+    error, 
+    isStale, 
+    refresh 
+  } = useLocalFirst<Job[]>('user_jobs', fetchJobs, {
+    store: 'jobs',
+    dependencies: [user?.id],
+    staleTime: 60000 // 1 minute
+  })
+  
+  const [newDomain, setNewDomain] = useState('')
+  const [maxPages, setMaxPages] = useState(20)
+  const [isCreating, setIsCreating] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [selectedJob, setSelectedJob] = useState<string | null>(null)
+  
+  // Prefetch job details on hover
+  const handleJobHover = useCallback((jobId: string) => {
+    prefetch(`/jobs/${jobId}`)
+  }, [])
+  
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 'n',
+      cmd: true,
+      handler: () => document.getElementById('new-crawl-input')?.focus(),
+      description: 'New crawl job'
+    },
+    {
+      key: 'r',
+      cmd: true,
+      handler: () => refresh(),
+      description: 'Refresh jobs'
+    },
+    {
+      key: 'Enter',
+      handler: () => {
+        if (selectedJob) {
+          router.push(`/jobs/${selectedJob}`)
+        }
+      },
+      description: 'Open selected job'
+    },
+    {
+      key: 'ArrowUp',
+      handler: () => {
+        if (jobs && jobs.length > 0) {
+          const currentIndex = jobs.findIndex(j => j.id === selectedJob)
+          const newIndex = Math.max(0, currentIndex - 1)
+          setSelectedJob(jobs[newIndex].id)
+        }
+      }
+    },
+    {
+      key: 'ArrowDown',
+      handler: () => {
+        if (jobs && jobs.length > 0) {
+          const currentIndex = jobs.findIndex(j => j.id === selectedJob)
+          const newIndex = Math.min(jobs.length - 1, currentIndex + 1)
+          setSelectedJob(jobs[newIndex].id)
+        }
+      }
     }
-
-    setJobs(data || [])
-    
-    // Set active job if there's one in progress
-    const inProgressJob = data?.find(job => 
-      ['pending', 'mapping', 'crawling', 'processing'].includes(job.status)
-    )
-    setActiveJob(inProgressJob || null)
-  }
-
-  // Poll for active job updates
-  useEffect(() => {
-    if (!activeJob) return
-
-    const interval = setInterval(() => {
-      loadJobs()
-    }, 3000) // Poll every 3 seconds
-
-    return () => clearInterval(interval)
-  }, [activeJob])
-
-  const validateDomain = (input: string): string | null => {
-    // Remove protocol if present
-    let cleanDomain = input.replace(/^https?:\/\//, '')
-    
-    // Remove trailing slash
-    cleanDomain = cleanDomain.replace(/\/$/, '')
-    
-    // Basic domain validation
+  ])
+  
+  // Debounced domain validation
+  const validateDomain = debounce((input: string) => {
+    const cleanDomain = input.replace(/^https?:\/\//, '').replace(/\/$/, '')
     const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i
     
     if (!domainRegex.test(cleanDomain)) {
-      return 'Please enter a valid domain (e.g., example.com)'
+      setToast({ message: 'Please enter a valid domain', type: 'error' })
+      return false
     }
-    
-    return null
-  }
-
+    return true
+  }, 300)
+  
   const startCrawl = async () => {
-    if (!user) return
+    if (!user || !validateDomain(newDomain)) return
     
-    setError(null)
-    
-    // Validate domain
-    const validationError = validateDomain(domain)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-    
-    // Clean domain for processing
-    const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    
-    setLoading(true)
+    setIsCreating(true)
     
     try {
-      // Create crawl job
-      const response = await fetch('/api/crawl/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          domain: cleanDomain,
+      const response = await measurePerformance(
+        'start_crawl',
+        () => fetch('/api/crawl/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            domain: newDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+            maxPages,
+            userId: user.id
+          })
+        }),
+        2000
+      )
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setToast({ message: 'Crawl started successfully!', type: 'success' })
+        setNewDomain('')
+        
+        // Optimistically update local cache
+        const newJob: Job = {
+          id: data.jobId,
+          domain: newDomain,
+          status: 'pending',
           max_pages: maxPages,
-          user_id: user.id
-        })
-      })
-      
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to start crawl')
+          total_urls: 0,
+          urls_crawled: 0,
+          urls_processed: 0,
+          created_at: new Date().toISOString()
+        }
+        
+        const currentJobs = jobs || []
+        await localCache.set('jobs', 'user_jobs', [newJob, ...currentJobs])
+        
+        // Prefetch the new job page
+        prefetch(`/jobs/${data.jobId}`)
+        
+        setTimeout(() => {
+          router.push(`/jobs/${data.jobId}`)
+        }, 500)
+      } else {
+        setToast({ message: data.error || 'Failed to start crawl', type: 'error' })
       }
-      
-      const { job } = await response.json()
-      
-      setActiveJob(job)
-      setDomain('')
-      await loadJobs()
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to start crawl')
+    } catch (error) {
+      setToast({ message: 'An error occurred', type: 'error' })
     } finally {
-      setLoading(false)
+      setIsCreating(false)
     }
   }
-
+  
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-50'
-      case 'failed': return 'text-red-600 bg-red-50'
-      case 'mapping':
-      case 'crawling':
-      case 'processing': return 'text-blue-600 bg-blue-50'
-      default: return 'text-gray-600 bg-gray-50'
+    const colors = {
+      completed: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800',
+      processing: 'bg-blue-100 text-blue-800',
+      crawling: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-gray-100 text-gray-800'
     }
+    return colors[status as keyof typeof colors] || colors.pending
   }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
-      case 'failed':
-        return <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
-      default:
-        return <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
-    }
+  
+  const getProgress = (job: Job) => {
+    if (job.total_urls === 0) return 0
+    return (job.urls_processed / job.total_urls) * 100
   }
-
+  
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <SkeletonCard />
+          <div className="mt-8">
+            <SkeletonTable rows={5} columns={5} />
+          </div>
+        </div>
       </div>
     )
   }
-
+  
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">S</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">SideGSO</h1>
-                <p className="text-xs text-gray-500">Transform websites into AI-ready content</p>
-              </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <PerformanceMonitor />
+      
+      {/* Header with smooth animations */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                SideGSO Dashboard
+              </h1>
+              {isStale && (
+                <span className="ml-3 text-xs text-yellow-600 dark:text-yellow-400">
+                  • Offline mode
+                </span>
+              )}
             </div>
             
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.email}</span>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="text-sm text-gray-500 hover:text-gray-700"
+              <RippleButton
+                onClick={refresh}
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label="Refresh"
               >
-                Sign Out
-              </button>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                  />
+                </svg>
+              </RippleButton>
+              
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {user?.email}
+              </span>
+              
+              <RippleButton
+                onClick={() => supabase.auth.signOut()}
+                className="px-3 py-1 text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+              >
+                Sign out
+              </RippleButton>
             </div>
           </div>
         </div>
       </header>
-
+      
+      {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Input Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate SideGSO Files</h2>
+        {/* New crawl card with micro-interactions */}
+        <HoverCard className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Start New Crawl
+          </h2>
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="domain" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="new-crawl-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Website Domain
               </label>
               <input
-                id="domain"
+                id="new-crawl-input"
                 type="text"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
+                value={newDomain}
+                onChange={(e) => setNewDomain(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && startCrawl()}
                 placeholder="example.com"
-                disabled={loading || activeJob !== null}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                  dark:bg-gray-700 dark:text-white transition-all duration-200"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Enter the domain you want to generate SideGSO files for
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="maxPages" className="block text-sm font-medium text-gray-700 mb-1">
-                Maximum Pages to Crawl
-              </label>
-              <select
-                id="maxPages"
-                value={maxPages}
-                onChange={(e) => setMaxPages(Number(e.target.value))}
-                disabled={loading || activeJob !== null}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
-              >
-                <option value={10}>10 pages</option>
-                <option value={20}>20 pages (recommended)</option>
-                <option value={50}>50 pages</option>
-                <option value={100}>100 pages</option>
-                <option value={200}>200 pages (pro)</option>
-              </select>
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={startCrawl}
-              disabled={!domain || loading || activeJob !== null}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Starting...' : activeJob ? 'Job in Progress' : 'Start Generation'}
-            </button>
-          </div>
-        </div>
-
-        {/* Active Job Progress */}
-        {activeJob && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-900">Active Job</h3>
-                <p className="text-sm text-blue-700">{activeJob.domain}</p>
-              </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(activeJob.status)}`}>
-                {getStatusIcon(activeJob.status)}
-                <span>{activeJob.status}</span>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-blue-700">
-                <span>Progress</span>
-                <span>{activeJob.urls_processed} / {activeJob.total_urls || '?'} URLs</span>
-              </div>
-              <div className="w-full bg-blue-100 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-blue-600 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                  style={{ 
-                    width: activeJob.total_urls 
-                      ? `${(activeJob.urls_processed / activeJob.total_urls) * 100}%` 
-                      : '0%' 
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Status Messages */}
-            <div className="mt-4 text-sm text-blue-700">
-              {activeJob.status === 'mapping' && 'Discovering URLs on the website...'}
-              {activeJob.status === 'crawling' && 'Extracting content from pages...'}
-              {activeJob.status === 'processing' && 'Generating AI summaries...'}
-              {activeJob.error_message && (
-                <div className="mt-2 text-red-600">{activeJob.error_message}</div>
-              )}
             </div>
             
-            {/* Continue Processing Button for stuck jobs */}
-            {activeJob.status === 'processing' && (
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/crawl/process-batch', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ job_id: activeJob.id, batch_size: 5 })
-                    })
-                    const result = await response.json()
-                    console.log('Processing triggered:', result)
-                    // Refresh job status
-                    loadJobs()
-                  } catch (error) {
-                    console.error('Error triggering processing:', error)
-                  }
-                }}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                Continue Processing
-              </button>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Pages: {maxPages}
+              </label>
+              <input
+                type="range"
+                min="5"
+                max="50"
+                value={maxPages}
+                onChange={(e) => setMaxPages(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <RippleButton
+              onClick={startCrawl}
+              disabled={isCreating || !newDomain}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md 
+                hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed
+                transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              {isCreating ? (
+                <>
+                  <Spinner size="sm" />
+                  Starting...
+                </>
+              ) : (
+                'Start Crawl'
+              )}
+            </RippleButton>
           </div>
-        )}
-
-        {/* Recent Jobs */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Jobs</h3>
+        </HoverCard>
+        
+        {/* Jobs list with enhanced UI */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Recent Jobs
+            </h2>
+          </div>
           
-          {jobs.length > 0 ? (
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <div key={job.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-gray-900">{job.domain}</h4>
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(job.status)}`}>
-                          {getStatusIcon(job.status)}
-                          <span>{job.status}</span>
+          {loading && !jobs ? (
+            <SkeletonTable rows={5} columns={5} />
+          ) : jobs && jobs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Domain
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Progress
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Size
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {jobs.map((job) => (
+                    <tr 
+                      key={job.id}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150
+                        ${selectedJob === job.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                      onClick={() => setSelectedJob(job.id)}
+                      onMouseEnter={() => handleJobHover(job.id)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {job.domain}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)}`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="w-32">
+                          <SmoothProgress value={getProgress(job)} />
+                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {job.urls_processed}/{job.total_urls}
+                          </span>
                         </div>
-                      </div>
-                      <div className="mt-1 text-sm text-gray-500">
-                        {job.urls_processed} URLs processed • {new Date(job.created_at).toLocaleString()}
-                      </div>
-                      {job.error_message && (
-                        <div className="mt-2 text-sm text-red-600">{job.error_message}</div>
-                      )}
-                    </div>
-                    
-                    {job.status === 'completed' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/jobs/${job.id}`)}
-                          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatBytes(job.total_content_size || 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <RippleButton
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/jobs/${job.id}`)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 px-3 py-1"
                         >
-                          View Files
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                          View
+                        </RippleButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No jobs yet. Start by entering a domain above.</p>
+            <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+              No jobs yet. Start your first crawl above!
+            </div>
           )}
         </div>
+        
+        {/* Keyboard shortcuts hint */}
+        <div className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+          Press <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">?</kbd> for keyboard shortcuts
+        </div>
       </main>
+      
+      {/* Toast notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
