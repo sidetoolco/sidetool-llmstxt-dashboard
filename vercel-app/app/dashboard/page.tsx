@@ -137,8 +137,8 @@ export default function EnhancedDashboard() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             domain: newDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
-            maxPages,
-            userId: user.id
+            max_pages: maxPages,
+            user_id: user.id
           })
         }),
         2000
@@ -146,33 +146,33 @@ export default function EnhancedDashboard() {
       
       const data = await response.json()
       
-      if (data.success) {
+      if (data.success && data.job) {
         setToast({ message: 'Crawl started successfully!', type: 'success' })
         setNewDomain('')
         
         // Optimistically update local cache
         const newJob: Job = {
-          id: data.jobId,
-          domain: newDomain,
-          status: 'pending',
-          max_pages: maxPages,
+          id: data.job.id,
+          domain: data.job.domain,
+          status: data.job.status || 'pending',
+          max_pages: data.job.max_pages,
           total_urls: 0,
           urls_crawled: 0,
           urls_processed: 0,
-          created_at: new Date().toISOString()
+          created_at: data.job.created_at
         }
         
         const currentJobs = jobs || []
         await localCache.set('jobs', 'user_jobs', [newJob, ...currentJobs])
         
         // Prefetch the new job page
-        prefetch(`/jobs/${data.jobId}`)
+        prefetch(`/jobs/${data.job.id}`)
         
         setTimeout(() => {
-          router.push(`/jobs/${data.jobId}`)
+          router.push(`/jobs/${data.job.id}`)
         }, 500)
       } else {
-        setToast({ message: data.error || 'Failed to start crawl', type: 'error' })
+        setToast({ message: data.message || 'Failed to start crawl', type: 'error' })
       }
     } catch (error) {
       setToast({ message: 'An error occurred', type: 'error' })
