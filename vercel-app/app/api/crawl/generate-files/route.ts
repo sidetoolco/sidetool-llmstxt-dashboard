@@ -25,17 +25,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
     
-    // Check if files already exist
-    const { data: existingFiles } = await supabase
+    // Delete any existing files for this job to avoid constraint issues
+    const { error: deleteError } = await supabase
       .from('generated_files')
-      .select('id')
+      .delete()
       .eq('job_id', job_id)
     
-    if (existingFiles && existingFiles.length > 0) {
-      return NextResponse.json({ 
-        message: 'Files already exist for this job',
-        file_count: existingFiles.length 
-      })
+    if (deleteError) {
+      console.log('No existing files to delete or error deleting:', deleteError.message)
     }
     
     // Get all completed URLs

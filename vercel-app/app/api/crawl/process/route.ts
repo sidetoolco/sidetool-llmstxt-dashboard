@@ -407,6 +407,12 @@ async function generateFiles(jobId: string, supabase: any) {
     content: indexContent
   })
   
+  // Delete any existing files for this job first (to avoid constraint violations)
+  await supabase
+    .from('generated_files')
+    .delete()
+    .eq('job_id', jobId)
+  
   // Store all files
   const { data: insertedFiles, error: insertError } = await supabase
     .from('generated_files')
@@ -418,7 +424,7 @@ async function generateFiles(jobId: string, supabase: any) {
     throw new Error(`Failed to save files: ${insertError.message}`)
   }
   
-  console.log(`Successfully inserted ${insertedFiles?.length || 0} files`)
+  console.log(`Successfully inserted ${insertedFiles?.length || 0} files for job ${jobId}`)
   
   // Calculate total content size
   const totalSize = filesToInsert.reduce((sum, file) => sum + file.file_size, 0)
