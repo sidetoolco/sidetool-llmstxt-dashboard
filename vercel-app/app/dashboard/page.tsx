@@ -57,7 +57,7 @@ export default function EnhancedDashboard() {
   })
   
   const [newDomain, setNewDomain] = useState('')
-  const [maxPages, setMaxPages] = useState(20)
+  const [maxPages, setMaxPages] = useState(25)
   const [isCreating, setIsCreating] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
@@ -281,16 +281,26 @@ export default function EnhancedDashboard() {
             
             <div>
               <label className="block text-xs font-medium text-ray-gray-400 mb-2">
-                Max Pages: <span className="text-ray-red font-semibold">{maxPages}</span>
+                Max Pages to Crawl
               </label>
-              <input
-                type="range"
-                min="5"
-                max="50"
-                value={maxPages}
-                onChange={(e) => setMaxPages(Number(e.target.value))}
-                className="w-full accent-ray-red"
-              />
+              <div className="grid grid-cols-5 gap-2">
+                {[10, 25, 50, 100, 250].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setMaxPages(value)}
+                    className={`py-1.5 px-3 text-xs font-medium rounded border transition-all ${
+                      maxPages === value
+                        ? 'bg-ray-red text-white border-ray-red'
+                        : 'bg-ray-gray-950 text-ray-gray-400 border-ray-gray-800 hover:border-ray-gray-600 hover:text-ray-gray-100'
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-ray-gray-600 mt-1">
+                {maxPages < 50 ? 'Good for small sites' : maxPages < 100 ? 'Recommended for most sites' : 'For large sites'}
+              </p>
             </div>
             
             <button

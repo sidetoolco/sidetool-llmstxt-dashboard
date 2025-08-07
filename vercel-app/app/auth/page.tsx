@@ -49,16 +49,35 @@ export default function AuthPage() {
     <div className="min-h-screen bg-ray-black flex items-center justify-center px-4">
       <div className="max-w-sm w-full">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <RayLogoMark size={48} />
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-3">
+            <RayLogoMark size={40} />
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">SideGSO</h1>
-          <p className="text-ray-gray-400 text-sm">
-            {mode === 'signin' ? 'Sign in to your account' : 
-             mode === 'signup' ? 'Create a new account' : 
-             'Reset your password'}
-          </p>
+          <h1 className="text-xl font-semibold text-white">SideGSO</h1>
+        </div>
+        
+        {/* Mode Tabs */}
+        <div className="flex bg-ray-gray-950 rounded-lg p-1 mb-6">
+          <button
+            onClick={() => setMode('signin')}
+            className={`flex-1 py-2 px-3 text-xs font-medium rounded transition-all ${
+              mode === 'signin'
+                ? 'bg-ray-gray-900 text-white'
+                : 'text-ray-gray-400 hover:text-ray-gray-100'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => setMode('signup')}
+            className={`flex-1 py-2 px-3 text-xs font-medium rounded transition-all ${
+              mode === 'signup'
+                ? 'bg-ray-gray-900 text-white'
+                : 'text-ray-gray-400 hover:text-ray-gray-100'
+            }`}
+          >
+            Sign Up
+          </button>
         </div>
 
         {/* Auth Form */}
@@ -143,41 +162,22 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {/* Mode Switcher */}
-          <div className="mt-6 text-center text-xs">
-            {mode === 'signin' ? (
-              <>
-                <button
-                  onClick={() => setMode('reset')}
-                  className="text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
-                >
-                  Forgot password?
-                </button>
-                <span className="text-ray-gray-600 mx-2">•</span>
-                <span className="text-ray-gray-500">Don't have an account? </span>
-                <button
-                  onClick={() => setMode('signup')}
-                  className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
-                >
-                  Sign up
-                </button>
-              </>
-            ) : mode === 'signup' ? (
-              <>
-                <span className="text-ray-gray-500">Already have an account? </span>
-                <button
-                  onClick={() => setMode('signin')}
-                  className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
-                >
-                  Sign in
-                </button>
-              </>
-            ) : (
+          {/* Additional Links */}
+          <div className="mt-6 text-center">
+            {mode === 'signin' && (
+              <button
+                onClick={() => setMode('reset')}
+                className="text-xs text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
+              >
+                Forgot your password?
+              </button>
+            )}
+            {mode === 'reset' && (
               <button
                 onClick={() => setMode('signin')}
-                className="text-ray-red hover:text-ray-red/80 transition-colors font-medium"
+                className="text-xs text-ray-gray-400 hover:text-ray-gray-100 transition-colors"
               >
-                Back to sign in
+                ← Back to sign in
               </button>
             )}
           </div>
