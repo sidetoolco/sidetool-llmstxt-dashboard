@@ -6,6 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://gso.sidetool.co'),
   title: 'SideGSO - Create AI-Ready Content from Any Website',
   description: 'Generate standardized llms.txt and llms-full.txt files from any website for LLM inference and training. Powered by Firecrawl and OpenAI.',
   keywords: 'SideGSO, LLMs.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
     title: 'SideGSO',
     description: 'Transform any website into AI-ready content files',
     type: 'website',
-    url: 'https://sidegso.vercel.app',
+    url: 'https://gso.sidetool.co',
   },
   icons: {
     icon: '/favicon.svg',
