@@ -341,10 +341,20 @@ async function generateFiles(jobId: string, supabase: any) {
   const filesToInsert = []
   
   // Generate individual llms.txt file for each page
-  for (const url of urls) {
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i]
     // Extract page name from URL for filename
     const urlPath = new URL(url.url).pathname
-    const pageName = urlPath.split('/').filter(Boolean).pop() || 'index'
+    let pageName = urlPath.split('/').filter(Boolean).pop() || 'index'
+    
+    // Ensure unique file names by adding index if needed
+    const existingFileNames = filesToInsert.map(f => f.file_path)
+    let fileName = `${job.domain}/${pageName}-llms.txt`
+    let counter = 1
+    while (existingFileNames.includes(fileName)) {
+      fileName = `${job.domain}/${pageName}-${counter}-llms.txt`
+      counter++
+    }
     
     // Generate individual llms.txt content
     let pageContent = `# ${url.title}\n\n`
@@ -373,7 +383,7 @@ async function generateFiles(jobId: string, supabase: any) {
     filesToInsert.push({
       job_id: jobId,
       file_type: 'llms.txt',
-      file_path: `${job.domain}/${pageName}-llms.txt`,
+      file_path: fileName,
       file_size: new TextEncoder().encode(pageContent).length,
       content: pageContent
     })

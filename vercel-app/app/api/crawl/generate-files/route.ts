@@ -25,14 +25,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
     
-    // Delete any existing files for this job to avoid constraint issues
-    const { error: deleteError } = await supabase
+    // First check what files exist
+    const { data: existingFiles, error: checkError } = await supabase
       .from('generated_files')
-      .delete()
+      .select('id, file_path')
       .eq('job_id', job_id)
     
-    if (deleteError) {
-      console.log('No existing files to delete or error deleting:', deleteError.message)
+    console.log(`Found ${existingFiles?.length || 0} existing files for job ${job_id}`)
+    
+    // Delete any existing files for this job to avoid constraint issues
+    if (existingFiles && existingFiles.length > 0) {
+      const { error: deleteError, count } = await supabase
+        .from('generated_files')
+        .delete()
+        .eq('job_id', job_id)
+      
+      if (deleteError) {
+        console.error('Error deleting existing files:', deleteError)
+        return NextResponse.json({ 
+          error: `Failed to delete existing files: ${deleteError.message}`,
+          existing_files: existingFiles.length
+        }, { status: 500 })
+      }
+      
+      console.log(`Deleted ${count} existing files`)
     }
     
     // Get all completed URLs
@@ -53,10 +69,20 @@ export async function POST(request: Request) {
     const filesToInsert = []
     
     // Generate individual llms.txt file for each page
-    for (const url of urls) {
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i]
       // Extract page name from URL for filename
       const urlPath = new URL(url.url).pathname
-      const pageName = urlPath.split('/').filter(Boolean).pop() || 'index'
+      let pageName = urlPath.split('/').filter(Boolean).pop() || 'index'
+      
+      // Ensure unique file names by adding index if needed
+      const existingFileNames = filesToInsert.map(f => f.file_path)
+      let fileName = `${job.domain}/${pageName}-llms.txt`
+      let counter = 1
+      while (existingFileNames.includes(fileName)) {
+        fileName = `${job.domain}/${pageName}-${counter}-llms.txt`
+        counter++
+      }
       
       // Generate individual llms.txt content
       let pageContent = `# ${url.title}\n\n`
@@ -85,7 +111,7 @@ export async function POST(request: Request) {
       filesToInsert.push({
         job_id: job_id,
         file_type: 'llms.txt',
-        file_path: `${job.domain}/${pageName}-llms.txt`,
+        file_path: fileName,
         file_size: new TextEncoder().encode(pageContent).length,
         content: pageContent
       })
