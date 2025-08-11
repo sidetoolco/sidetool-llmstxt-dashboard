@@ -15,18 +15,31 @@ export async function POST(request: Request) {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
+    // Get the job first
+    const { data: job, error: jobError } = await supabase
+      .from('crawl_jobs')
+      .select('*')
+      .eq('id', job_id)
+      .single()
+    
+    if (jobError || !job) {
+      // Try with different ID formats in case there's a formatting issue
+      console.log(`Job not found with ID: ${job_id}`)
+      console.log('Job fetch error:', jobError)
+      return NextResponse.json({ 
+        error: 'Job not found',
+        job_id_provided: job_id,
+        details: jobError?.message 
+      }, { status: 404 })
+    }
+    
     // Verify job belongs to user if user_id provided
-    if (user_id) {
-      const { data: job } = await supabase
-        .from('crawl_jobs')
-        .select('*')
-        .eq('id', job_id)
-        .eq('user_id', user_id)
-        .single()
-      
-      if (!job) {
-        return NextResponse.json({ error: 'Job not found or unauthorized' }, { status: 404 })
-      }
+    if (user_id && job.user_id !== user_id) {
+      console.log(`User mismatch - Job user: ${job.user_id}, Provided user: ${user_id}`)
+      return NextResponse.json({ 
+        error: 'Unauthorized - job belongs to different user',
+        job_domain: job.domain 
+      }, { status: 403 })
     }
     
     // Check if files already exist
