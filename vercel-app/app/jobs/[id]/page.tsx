@@ -387,11 +387,10 @@ export default function JobDetailsPage() {
                       </button>
                       <button
                         onClick={() => copyToClipboard(file.content, file.id)}
-                        className={`text-sm font-medium px-4 py-2 rounded-full transition-all ${
-                          copiedFile === file.id
-                            ? 'bg-green-100 text-green-700 border border-green-300'
-                            : 'btn-secondary'
-                        }`}
+                        className={copiedFile === file.id
+                          ? 'badge-success px-6 py-3 text-sm font-medium'
+                          : 'btn-secondary text-sm'
+                        }
                       >
                         {copiedFile === file.id ? '✓ Copied!' : 'Copy'}
                       </button>

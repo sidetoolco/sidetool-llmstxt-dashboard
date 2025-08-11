@@ -113,7 +113,7 @@ export default function LandingPage() {
             >
               <button 
                 onClick={handleGetStarted}
-                className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="btn-primary btn-lg group"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -129,7 +129,7 @@ export default function LandingPage() {
               </button>
               <a 
                 href="#how-it-works"
-                className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                className="btn-secondary btn-lg"
               >
                 See How It Works
               </a>
@@ -449,7 +449,7 @@ function CTASection({ onGetStarted, isLoading }: { onGetStarted: (e: React.Mouse
         </p>
         <button 
           onClick={onGetStarted}
-          className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-orange-600 bg-white rounded-full shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200"
+          className="btn-secondary btn-lg shadow-xl hover:shadow-2xl"
           disabled={isLoading}
         >
           {isLoading ? (

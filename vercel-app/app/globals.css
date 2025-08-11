@@ -99,33 +99,32 @@
   }
   
   .btn-primary {
-    @apply bg-orange-500 text-white shadow-sm hover:bg-orange-600 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-orange-500 text-white shadow-sm hover:bg-orange-600 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer;
   }
   
   .btn-secondary {
-    @apply bg-white border border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400;
-    color: #374151;
-    font-weight: 500;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 cursor-pointer;
   }
   
   .btn-ghost {
-    @apply hover:bg-gray-100;
-    color: #4B5563;
-    font-weight: 500;
-  }
-  
-  .btn-ghost:hover {
-    color: #111827;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 cursor-pointer;
   }
   
   .btn-danger {
-    @apply bg-red-500 text-white hover:bg-red-600;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200 cursor-pointer;
   }
   
   .btn-success {
-    @apply bg-green-500 text-white hover:bg-green-600;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-green-500 text-white hover:bg-green-600 transition-all duration-200 cursor-pointer;
   }
-}
+  
+  .btn-sm {
+    @apply px-4 py-2 text-xs;
+  }
+  
+  .btn-lg {
+    @apply px-8 py-4 text-base;
+  }
 
 /* Cards */
 @layer components {
@@ -175,35 +174,46 @@
   }
   
   .badge-primary {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #FFF4ED;
     color: #C2410C;
   }
   
   .badge-success {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #DCFCE7;
     color: #14532D;
   }
   
   .badge-warning {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #FEF3C7;
     color: #78350F;
   }
   
   .badge-danger {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #FEE2E2;
     color: #7F1D1D;
   }
   
   .badge-info {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #DBEAFE;
     color: #1E3A8A;
   }
   
   .badge-purple {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
     background-color: #F3E8FF;
     color: #581C87;
   }
-}
+  
+  .badge-gray {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full;
+    background-color: #F3F4F6;
+    color: #374151;
+  }
 
 /* Navigation */
 @layer components {
