@@ -1,15 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#6366F1;stop-opacity:1" />
+    <!-- Primary gradient -->
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6F3C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF8A5B;stop-opacity:1" />
     </linearGradient>
+    
+    <!-- White gradient for depth -->
+    <linearGradient id="whiteGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0.95" />
+    </linearGradient>
+    
+    <!-- Inner shadow -->
+    <filter id="innerShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
+      <feOffset dx="0" dy="1"/>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 0.1 0"/>
+    </filter>
   </defs>
-  <rect width="32" height="32" rx="6" fill="url(#gradient)"/>
-  <path d="M9 8h10a2 2 0 012 2v12a2 2 0 01-2 2H9a2 2 0 01-2-2V10a2 2 0 012-2z" fill="white" opacity="0.9"/>
-  <rect x="10" y="11" width="8" height="2" rx="0.5" fill="#3B82F6"/>
-  <rect x="10" y="15" width="6" height="2" rx="0.5" fill="#3B82F6"/>
-  <rect x="10" y="19" width="7" height="2" rx="0.5" fill="#3B82F6"/>
-  <circle cx="24" cy="24" r="5" fill="#10B981"/>
-  <path d="M22 24l1.5 1.5L26 23" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Background with rounded square -->
+  <rect width="32" height="32" rx="8" fill="url(#primaryGradient)"/>
+  
+  <!-- S letterform - clean and bold -->
+  <g transform="translate(16, 16)">
+    <!-- Outer S -->
+    <path d="M -5,-7 Q -5,-10 0,-10 Q 5,-10 5,-7 Q 5,-4 0,-2 Q -5,0 -5,3 Q -5,6 0,6 Q 5,6 5,3" 
+          stroke="url(#whiteGradient)" 
+          stroke-width="3.5" 
+          stroke-linecap="round" 
+          fill="none"
+          filter="url(#innerShadow)"/>
+    
+    <!-- Inner highlight for depth -->
+    <path d="M -5,-7 Q -5,-10 0,-10 Q 5,-10 5,-7 Q 5,-4 0,-2 Q -5,0 -5,3 Q -5,6 0,6 Q 5,6 5,3" 
+          stroke="white" 
+          stroke-width="3" 
+          stroke-linecap="round" 
+          fill="none"/>
+  </g>
+  
+  <!-- Small accent elements -->
+  <circle cx="7" cy="8" r="1" fill="white" opacity="0.4"/>
+  <circle cx="25" cy="24" r="1" fill="white" opacity="0.4"/>
 </svg>

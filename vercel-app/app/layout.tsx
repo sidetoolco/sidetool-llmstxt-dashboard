@@ -34,7 +34,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#FF6F3C" />
       </head>
       <body className={`${inter.className} min-h-screen`}>
         <AuthProvider>
