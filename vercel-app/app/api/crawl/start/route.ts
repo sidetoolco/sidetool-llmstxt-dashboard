@@ -49,15 +49,14 @@ export async function POST(request: Request) {
       )
     }
     
-    // Check for active jobs (allow up to 3 concurrent jobs per user)
-    const MAX_CONCURRENT_JOBS = 3
+    // Check for active jobs on the same domain
     const { data: activeJobs } = await supabase
       .from('crawl_jobs')
       .select('id, domain')
       .eq('user_id', user_id)
       .in('status', ['pending', 'mapping', 'crawling', 'processing'])
     
-    // Check if same domain is already being processed
+    // Check if same domain is already being processed (keep this check to prevent duplicate crawls of same domain)
     if (activeJobs && activeJobs.some(job => job.domain === domain)) {
       return NextResponse.json(
         { message: `Already processing ${domain}. Please wait for it to complete.` },
@@ -65,13 +64,7 @@ export async function POST(request: Request) {
       )
     }
     
-    // Check if user has reached concurrent job limit
-    if (activeJobs && activeJobs.length >= MAX_CONCURRENT_JOBS) {
-      return NextResponse.json(
-        { message: `You have reached the maximum of ${MAX_CONCURRENT_JOBS} concurrent jobs. Please wait for one to complete.` },
-        { status: 429 }
-      )
-    }
+    // No concurrent job limit - users can run multiple crawls
     
     // Create crawl job
     const { data: job, error: jobError } = await supabase
@@ -151,12 +144,20 @@ export async function POST(request: Request) {
       const queued = await addJobToQueue(job.id, urls)
       
       if (queued === 0) {
-        console.log('Redis not configured - will process synchronously')
-        // If Redis is not configured, process a limited number of URLs immediately
-        const limitedUrls = urls.slice(0, 3) // Process only first 3 URLs to avoid timeout
+        console.log('Redis not configured - will process all URLs asynchronously')
+        // If Redis is not configured, process all URLs asynchronously
+        // We'll fire off the requests but not wait for them to complete
         
-        // Process URLs synchronously
-        for (const url of limitedUrls) {
+        // Process URLs asynchronously in batches
+        const batchSize = 5 // Process 5 URLs at a time
+        const urlBatches = []
+        for (let i = 0; i < urls.length; i += batchSize) {
+          urlBatches.push(urls.slice(i, i + batchSize))
+        }
+        
+        // Process first batch synchronously to ensure immediate feedback
+        const firstBatch = urlBatches[0] || []
+        for (const url of firstBatch) {
           try {
             // Scrape the URL
             const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
@@ -195,8 +196,93 @@ export async function POST(request: Request) {
           }
         }
         
-        // Generate files immediately
-        await generateSimpleFiles(job.id, supabase)
+        // Process remaining batches asynchronously
+        if (urlBatches.length > 1) {
+          // Fire off async processing for remaining batches
+          const processRemainingBatches = async () => {
+            for (let i = 1; i < urlBatches.length; i++) {
+              const batch = urlBatches[i]
+              
+              // Process each URL in the batch
+              await Promise.all(batch.map(async (url) => {
+                try {
+                  const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${firecrawlApiKey}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      url,
+                      formats: ['markdown']
+                    })
+                  })
+                  
+                  if (scrapeResponse.ok) {
+                    const data = await scrapeResponse.json()
+                    const markdown = data.data?.markdown || ''
+                    const title = data.data?.metadata?.title || 'Untitled'
+                    const description = data.data?.metadata?.description || 'No description'
+                    
+                    // Update URL record
+                    await supabase
+                      .from('crawled_urls')
+                      .update({
+                        status: 'completed',
+                        title: title.substring(0, 100),
+                        description: description.substring(0, 200),
+                        content: markdown.substring(0, 50000),
+                        crawled_at: new Date().toISOString()
+                      })
+                      .eq('job_id', job.id)
+                      .eq('url', url)
+                    
+                    // Update job progress
+                    await supabase
+                      .from('crawl_jobs')
+                      .update({
+                        urls_processed: urls.indexOf(url) + 1
+                      })
+                      .eq('id', job.id)
+                  }
+                } catch (err) {
+                  console.error(`Error processing ${url}:`, err)
+                  await supabase
+                    .from('crawled_urls')
+                    .update({
+                      status: 'failed',
+                      error_message: err.message
+                    })
+                    .eq('job_id', job.id)
+                    .eq('url', url)
+                }
+              }))
+              
+              // Small delay between batches to respect rate limits
+              await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+            
+            // After all URLs are processed, generate final files and mark job complete
+            await generateSimpleFiles(job.id, supabase)
+            
+            // Mark job as completed
+            await supabase
+              .from('crawl_jobs')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString()
+              })
+              .eq('id', job.id)
+          }
+          
+          // Start async processing (don't wait for it to complete)
+          processRemainingBatches().catch(err => {
+            console.error(`Error in async batch processing for job ${job.id}:`, err)
+          })
+        } else {
+          // If only one batch, generate files immediately
+          await generateSimpleFiles(job.id, supabase)
+        }
       }
       
       // Update job status
