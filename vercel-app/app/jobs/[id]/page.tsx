@@ -76,6 +76,7 @@ export default function JobDetailsPage() {
   const [activeTab, setActiveTab] = useState<'files' | 'urls'>('files')
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState<string | null>(null)
+  const [isGeneratingFiles, setIsGeneratingFiles] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -185,6 +186,35 @@ export default function JobDetailsPage() {
       setTimeout(() => setCopiedFile(null), 2000)
     } catch (err) {
       console.error('Failed to copy:', err)
+    }
+  }
+
+  const generateMissingFiles = async () => {
+    if (!job || !user) return
+    
+    setIsGeneratingFiles(true)
+    
+    try {
+      const response = await fetch('/api/crawl/generate-missing-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: job.id, user_id: user.id })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        // Reload job details to show the new files
+        await loadJobDetails()
+      } else {
+        console.error('Failed to generate files:', data.error)
+        alert(data.error || 'Failed to generate files')
+      }
+    } catch (error: any) {
+      console.error('Generate files error:', error)
+      alert('Failed to generate files')
+    } finally {
+      setIsGeneratingFiles(false)
     }
   }
 
@@ -425,6 +455,31 @@ export default function JobDetailsPage() {
                   </svg>
                   <p className="text-gray-500">No files generated yet</p>
                   <p className="text-sm text-gray-400 mt-1">Files will appear here once the job is complete</p>
+                  
+                  {/* Show Generate Files button if job has completed URLs but no files */}
+                  {urls.some(u => u.status === 'completed') && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={generateMissingFiles}
+                      disabled={isGeneratingFiles}
+                      className="mt-6 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      {isGeneratingFiles ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Generating Files...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          📄 Generate Missing Files
+                        </span>
+                      )}
+                    </motion.button>
+                  )}
                 </div>
               )}
             </motion.div>
