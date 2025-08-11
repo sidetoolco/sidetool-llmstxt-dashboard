@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [openMenuJobId, setOpenMenuJobId] = useState<string | null>(null)
   const [hasIncompleteJobs, setHasIncompleteJobs] = useState(false)
+  const [jobsMissingFiles, setJobsMissingFiles] = useState<string[]>([])
   const [crawlStatus, setCrawlStatus] = useState<{
     show: boolean
     domain: string
@@ -110,6 +111,9 @@ export default function Dashboard() {
       
       setHasIncompleteJobs(incomplete.length > 0)
       setJobs(data || [])
+      
+      // Check for jobs missing files
+      checkMissingFiles()
     } catch (error) {
       console.error('Error fetching jobs:', error)
       setNotification({ message: 'Failed to load jobs', type: 'error' })
@@ -121,6 +125,57 @@ export default function Dashboard() {
   useEffect(() => {
     fetchJobs()
   }, [fetchJobs])
+  
+  const checkMissingFiles = async () => {
+    if (!user) return
+    
+    try {
+      const response = await fetch(`/api/crawl/generate-missing-files?user_id=${user.id}`)
+      const data = await response.json()
+      
+      if (data.jobs_missing_files) {
+        setJobsMissingFiles(data.jobs_missing_files.map((j: any) => j.id))
+        
+        if (data.count > 0) {
+          console.log(`Found ${data.count} jobs missing files:`, data.jobs_missing_files)
+        }
+      }
+    } catch (error) {
+      console.error('Error checking missing files:', error)
+    }
+  }
+  
+  const generateMissingFiles = async (jobId: string) => {
+    setNotification({ message: 'Generating files...', type: 'success' })
+    
+    try {
+      const response = await fetch('/api/crawl/generate-missing-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, user_id: user.id })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setNotification({ 
+          message: `Generated ${data.files?.length || 0} files successfully!`,
+          type: 'success' 
+        })
+        
+        // Remove from missing files list
+        setJobsMissingFiles(prev => prev.filter(id => id !== jobId))
+        
+        // Refresh jobs
+        await fetchJobs()
+      } else {
+        throw new Error(data.error || 'Failed to generate files')
+      }
+    } catch (error: any) {
+      console.error('Generate files error:', error)
+      setNotification({ message: error.message || 'Failed to generate files', type: 'error' })
+    }
+  }
   
   const fixIncompleteJobs = async () => {
     setNotification({ message: 'Fixing incomplete jobs...', type: 'success' })
@@ -764,6 +819,14 @@ export default function Dashboard() {
                                   </div>
                                 )}
                               </div>
+                            ) : jobsMissingFiles.includes(job.id) ? (
+                              <button
+                                onClick={() => generateMissingFiles(job.id)}
+                                className="px-3 py-1.5 text-xs font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors"
+                                title="This job has crawled data but no generated files"
+                              >
+                                📄 Generate Files
+                              </button>
                             ) : (
                               <span className="text-xs text-gray-400 px-2">Completed</span>
                             )}
