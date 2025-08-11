@@ -630,14 +630,12 @@ export default function Dashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                            <button
                               onClick={() => router.push(`/jobs/${job.id}`)}
-                              className="text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                              className="px-4 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
                             >
                               View Details →
-                            </motion.button>
+                            </button>
                             {['pending', 'mapping', 'crawling', 'processing'].includes(job.status) && (
                               <div className="relative">
                                 <button 
@@ -645,21 +643,22 @@ export default function Dashboard() {
                                     e.stopPropagation()
                                     setOpenMenuJobId(openMenuJobId === job.id ? null : job.id)
                                   }}
-                                  className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+                                  className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 border border-gray-200 transition-all"
+                                  title="More actions"
                                 >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                                   </svg>
                                 </button>
                                 {openMenuJobId === job.id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         handleJobAction(job.id, 'retry')
                                         setOpenMenuJobId(null)
                                       }}
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors block"
                                     >
                                       🔄 Retry Processing
                                     </button>
@@ -669,7 +668,7 @@ export default function Dashboard() {
                                         handleJobAction(job.id, 'complete')
                                         setOpenMenuJobId(null)
                                       }}
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors block"
                                     >
                                       ✅ Force Complete
                                     </button>
@@ -679,7 +678,7 @@ export default function Dashboard() {
                                         handleJobAction(job.id, 'cancel')
                                         setOpenMenuJobId(null)
                                       }}
-                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors block"
                                     >
                                       ❌ Cancel Job
                                     </button>
