@@ -20,6 +20,32 @@ interface Job {
   total_content_size?: number
 }
 
+// Favicon component with fallback
+function DomainFavicon({ domain }: { domain: string }) {
+  const [imageError, setImageError] = useState(false)
+  
+  if (imageError) {
+    return (
+      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
+        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center mr-3 bg-gray-100 overflow-hidden">
+      <img 
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+        alt={`${domain} favicon`}
+        className="w-full h-full object-contain"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -387,11 +413,7 @@ export default function Dashboard() {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
-                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                              </svg>
-                            </div>
+                            <DomainFavicon domain={job.domain} />
                             <div className="text-sm font-medium text-gray-900">
                               {job.domain}
                             </div>
