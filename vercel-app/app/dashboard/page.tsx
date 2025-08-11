@@ -55,6 +55,14 @@ export default function Dashboard() {
   const [maxPages, setMaxPages] = useState(25)
   const [isCreating, setIsCreating] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [crawlStatus, setCrawlStatus] = useState<{
+    show: boolean
+    domain: string
+    status: string
+    progress: number
+    message: string
+    jobId?: string
+  }>({ show: false, domain: '', status: '', progress: 0, message: '' })
   
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -90,6 +98,88 @@ export default function Dashboard() {
     fetchJobs()
   }, [fetchJobs])
   
+  const pollJobStatus = async (jobId: string) => {
+    let pollCount = 0
+    const maxPolls = 60 // Poll for up to 60 seconds
+    
+    const poll = async () => {
+      try {
+        const { data: jobData, error } = await supabase
+          .from('crawl_jobs')
+          .select('*')
+          .eq('id', jobId)
+          .single()
+        
+        if (error || !jobData) {
+          throw new Error('Failed to fetch job status')
+        }
+        
+        const progress = jobData.total_urls > 0 
+          ? Math.min(90, Math.round((jobData.urls_processed / jobData.total_urls) * 80) + 10)
+          : 10 + (pollCount * 2)
+        
+        setCrawlStatus(prev => ({
+          ...prev,
+          status: jobData.status,
+          progress,
+          message: `Crawled ${jobData.urls_processed} of ${jobData.total_urls} pages...`
+        }))
+        
+        if (jobData.status === 'completed' || jobData.status === 'failed') {
+          // Job finished
+          setCrawlStatus(prev => ({
+            ...prev,
+            status: jobData.status,
+            progress: 100,
+            message: jobData.status === 'completed' 
+              ? `Successfully crawled ${jobData.urls_processed} pages!` 
+              : 'Crawl failed'
+          }))
+          
+          setTimeout(() => {
+            setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })
+            if (jobData.status === 'completed') {
+              router.push(`/jobs/${jobId}`)
+            } else {
+              fetchJobs() // Refresh the jobs list
+            }
+          }, 2000)
+          return
+        }
+        
+        // Continue polling if job is still running
+        pollCount++
+        if (pollCount < maxPolls) {
+          setTimeout(poll, 1000) // Poll every second
+        } else {
+          // Timeout - redirect to job page anyway
+          setCrawlStatus(prev => ({
+            ...prev,
+            message: 'Taking longer than expected. Redirecting to job details...'
+          }))
+          setTimeout(() => {
+            setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })
+            router.push(`/jobs/${jobId}`)
+          }, 2000)
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error)
+        setCrawlStatus(prev => ({
+          ...prev,
+          status: 'error',
+          message: 'Failed to get crawl status'
+        }))
+        setTimeout(() => {
+          setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })
+          router.push(`/jobs/${jobId}`)
+        }, 2000)
+      }
+    }
+    
+    // Start polling after a short delay
+    setTimeout(poll, 1000)
+  }
+  
   const startCrawl = async () => {
     if (!user) {
       setNotification({ message: 'Please sign in to start a crawl', type: 'error' })
@@ -102,9 +192,18 @@ export default function Dashboard() {
     }
     
     setIsCreating(true)
+    const cleanDomain = newDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    
+    // Show crawl status modal immediately
+    setCrawlStatus({
+      show: true,
+      domain: cleanDomain,
+      status: 'starting',
+      progress: 0,
+      message: 'Initializing crawler...'
+    })
     
     try {
-      const cleanDomain = newDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
       const response = await fetch('/api/crawl/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,15 +221,31 @@ export default function Dashboard() {
       }
       
       if (data.success && data.job) {
-        setNotification({ message: 'Crawl started successfully!', type: 'success' })
         setNewDomain('')
-        setTimeout(() => {
-          router.push(`/jobs/${data.job.id}`)
-        }, 500)
+        
+        // Update status to show it's crawling
+        setCrawlStatus(prev => ({
+          ...prev,
+          status: 'crawling',
+          progress: 10,
+          message: `Starting to crawl ${cleanDomain}...`,
+          jobId: data.job.id
+        }))
+        
+        // Start polling for job status
+        pollJobStatus(data.job.id)
       }
     } catch (error: any) {
       console.error('Start crawl error:', error)
-      setNotification({ message: error.message || 'Failed to start crawl', type: 'error' })
+      setCrawlStatus(prev => ({
+        ...prev,
+        status: 'error',
+        message: error.message || 'Failed to start crawl'
+      }))
+      setTimeout(() => {
+        setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })
+        setNotification({ message: error.message || 'Failed to start crawl', type: 'error' })
+      }, 2000)
     } finally {
       setIsCreating(false)
     }
@@ -470,6 +585,121 @@ export default function Dashboard() {
           )}
         </motion.div>
       </main>
+      
+      {/* Crawl Status Modal */}
+      <AnimatePresence>
+        {crawlStatus.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8"
+            >
+              {/* Icon and Domain */}
+              <div className="text-center mb-6">
+                <motion.div
+                  animate={{ rotate: crawlStatus.status === 'crawling' ? 360 : 0 }}
+                  transition={{ duration: 2, repeat: crawlStatus.status === 'crawling' ? Infinity : 0, ease: "linear" }}
+                  className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl mb-4"
+                >
+                  {crawlStatus.status === 'error' ? (
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : crawlStatus.status === 'completed' ? (
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                  )}
+                </motion.div>
+                
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {crawlStatus.status === 'starting' ? 'Starting Crawl' :
+                   crawlStatus.status === 'crawling' ? 'Crawling Website' :
+                   crawlStatus.status === 'completed' ? 'Crawl Complete!' :
+                   crawlStatus.status === 'error' ? 'Crawl Error' :
+                   'Processing...'}
+                </h2>
+                <p className="text-lg text-gray-600 mt-2 font-medium">{crawlStatus.domain}</p>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Progress</span>
+                  <span className="text-sm font-semibold text-gray-900">{crawlStatus.progress}%</span>
+                </div>
+                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${crawlStatus.progress}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className={`h-full rounded-full ${
+                      crawlStatus.status === 'error' ? 'bg-red-500' :
+                      crawlStatus.status === 'completed' ? 'bg-green-500' :
+                      'bg-gradient-to-r from-orange-500 to-yellow-500'
+                    }`}
+                  />
+                </div>
+              </div>
+              
+              {/* Status Message */}
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600">{crawlStatus.message}</p>
+              </div>
+              
+              {/* Loading Animation */}
+              {(crawlStatus.status === 'starting' || crawlStatus.status === 'crawling') && (
+                <div className="flex justify-center mb-6">
+                  <div className="flex space-x-2">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ y: [0, -10, 0] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }}
+                        className="w-3 h-3 bg-orange-500 rounded-full"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Action Buttons */}
+              {crawlStatus.status === 'error' && (
+                <button
+                  onClick={() => setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })}
+                  className="w-full btn-secondary"
+                >
+                  Close
+                </button>
+              )}
+              
+              {crawlStatus.jobId && (crawlStatus.status === 'crawling' || crawlStatus.status === 'starting') && (
+                <button
+                  onClick={() => {
+                    setCrawlStatus({ show: false, domain: '', status: '', progress: 0, message: '' })
+                    router.push(`/jobs/${crawlStatus.jobId}`)
+                  }}
+                  className="w-full btn-ghost text-sm"
+                >
+                  View Details in Background →
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Notification Toast */}
       <AnimatePresence>
