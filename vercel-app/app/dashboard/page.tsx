@@ -56,6 +56,7 @@ export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [openMenuJobId, setOpenMenuJobId] = useState<string | null>(null)
+  const [hasIncompleteJobs, setHasIncompleteJobs] = useState(false)
   const [crawlStatus, setCrawlStatus] = useState<{
     show: boolean
     domain: string
@@ -98,7 +99,16 @@ export default function Dashboard() {
         .limit(10)
       
       if (error) throw error
-      console.log('Jobs loaded:', data?.map(j => ({ id: j.id, domain: j.domain, status: j.status })))
+      console.log('Jobs loaded:', data?.map(j => ({ id: j.id, domain: j.domain, status: j.status, processed: j.urls_processed, total: j.total_urls })))
+      
+      // Check for incomplete jobs
+      const incomplete = data?.filter(job => 
+        job.status === 'completed' && 
+        job.total_urls > 0 && 
+        (job.urls_processed / job.total_urls) < 0.8
+      ) || []
+      
+      setHasIncompleteJobs(incomplete.length > 0)
       setJobs(data || [])
     } catch (error) {
       console.error('Error fetching jobs:', error)
@@ -111,6 +121,35 @@ export default function Dashboard() {
   useEffect(() => {
     fetchJobs()
   }, [fetchJobs])
+  
+  const fixIncompleteJobs = async () => {
+    setNotification({ message: 'Fixing incomplete jobs...', type: 'success' })
+    
+    try {
+      const response = await fetch('/api/crawl/fix-incomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setNotification({ 
+          message: `Fixed ${data.jobs?.length || 0} incomplete jobs. They can now be retried.`,
+          type: 'success' 
+        })
+        
+        // Refresh jobs list
+        await fetchJobs()
+      } else {
+        throw new Error(data.error || 'Failed to fix jobs')
+      }
+    } catch (error: any) {
+      console.error('Fix incomplete jobs error:', error)
+      setNotification({ message: error.message || 'Failed to fix incomplete jobs', type: 'error' })
+    }
+  }
   
   const handleJobAction = async (jobId: string, action: 'retry' | 'complete' | 'cancel') => {
     const actionMessages = {
@@ -366,6 +405,19 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-4">
+              {hasIncompleteJobs && (
+                <button
+                  onClick={fixIncompleteJobs}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center gap-2"
+                  title="Some jobs didn't complete fully. Click to fix them."
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Fix Incomplete Jobs
+                </button>
+              )}
+              
               <button
                 onClick={fetchJobs}
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
@@ -637,7 +689,7 @@ export default function Dashboard() {
                             >
                               View Details →
                             </button>
-                            {(job.status !== 'completed') ? (
+                            {(job.status === 'failed' || job.status === 'pending' || job.status === 'mapping' || job.status === 'crawling' || job.status === 'processing') ? (
                               <div className="relative">
                                 <button 
                                   onClick={(e) => {
