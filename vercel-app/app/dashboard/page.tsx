@@ -55,6 +55,7 @@ export default function Dashboard() {
   const [maxPages, setMaxPages] = useState(25)
   const [isCreating, setIsCreating] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [openMenuJobId, setOpenMenuJobId] = useState<string | null>(null)
   const [crawlStatus, setCrawlStatus] = useState<{
     show: boolean
     domain: string
@@ -70,6 +71,18 @@ export default function Dashboard() {
       router.push('/auth')
     }
   }, [user, authLoading, router])
+  
+  // Close dropdown menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuJobId && !(event.target as HTMLElement).closest('.relative')) {
+        setOpenMenuJobId(null)
+      }
+    }
+    
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [openMenuJobId])
   
   // Fetch jobs
   const fetchJobs = useCallback(async () => {
@@ -626,32 +639,52 @@ export default function Dashboard() {
                               View Details →
                             </motion.button>
                             {['pending', 'mapping', 'crawling', 'processing'].includes(job.status) && (
-                              <div className="relative group">
-                                <button className="p-1 text-gray-400 hover:text-gray-600">
+                              <div className="relative">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setOpenMenuJobId(openMenuJobId === job.id ? null : job.id)
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+                                >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                                   </svg>
                                 </button>
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 hidden group-hover:block">
-                                  <button
-                                    onClick={() => handleJobAction(job.id, 'retry')}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    🔄 Retry Processing
-                                  </button>
-                                  <button
-                                    onClick={() => handleJobAction(job.id, 'complete')}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    ✅ Force Complete
-                                  </button>
-                                  <button
-                                    onClick={() => handleJobAction(job.id, 'cancel')}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                  >
-                                    ❌ Cancel Job
-                                  </button>
-                                </div>
+                                {openMenuJobId === job.id && (
+                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleJobAction(job.id, 'retry')
+                                        setOpenMenuJobId(null)
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                    >
+                                      🔄 Retry Processing
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleJobAction(job.id, 'complete')
+                                        setOpenMenuJobId(null)
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                    >
+                                      ✅ Force Complete
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleJobAction(job.id, 'cancel')
+                                        setOpenMenuJobId(null)
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                      ❌ Cancel Job
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
