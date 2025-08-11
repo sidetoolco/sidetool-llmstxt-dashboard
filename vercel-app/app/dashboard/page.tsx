@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { supabase } from '@/components/Auth/AuthProvider'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LoadingDotsAnimation, EmptyStateAnimation } from '@/components/UI/LottieAnimations'
+import { LoadingDotsAnimation, EmptyStateAnimation } from '@/components/ui/LottieAnimations'
 
 interface Job {
   id: string

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LoadingDotsAnimation } from '@/components/UI/LottieAnimations'
+import { LoadingDotsAnimation } from '@/components/ui/LottieAnimations'
 
 export default function AuthPage() {
   const router = useRouter()

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/Auth/AuthProvider'
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
-import { LoadingDotsAnimation } from '@/components/UI/LottieAnimations'
+import { LoadingDotsAnimation } from '@/components/ui/LottieAnimations'
 
 export default function LandingPage() {
   const router = useRouter()
