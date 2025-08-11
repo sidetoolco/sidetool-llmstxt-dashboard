@@ -98,6 +98,61 @@ export default function Dashboard() {
     fetchJobs()
   }, [fetchJobs])
   
+  const handleJobAction = async (jobId: string, action: 'retry' | 'complete' | 'cancel') => {
+    const actionMessages = {
+      retry: 'Retrying job...',
+      complete: 'Completing job...',
+      cancel: 'Cancelling job...'
+    }
+    
+    setNotification({ message: actionMessages[action], type: 'success' })
+    
+    try {
+      const response = await fetch('/api/crawl/fix-stuck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, action })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setNotification({ 
+          message: action === 'retry' ? 'Job restarted successfully!' :
+                   action === 'complete' ? 'Job completed successfully!' :
+                   'Job cancelled',
+          type: 'success' 
+        })
+        
+        // Refresh jobs list
+        await fetchJobs()
+        
+        // If retry, show the crawl status modal
+        if (action === 'retry') {
+          const job = jobs.find(j => j.id === jobId)
+          if (job) {
+            setCrawlStatus({
+              show: true,
+              domain: job.domain,
+              status: 'crawling',
+              progress: 50,
+              message: 'Processing remaining URLs...',
+              jobId
+            })
+            
+            // Start polling
+            pollJobStatus(jobId)
+          }
+        }
+      } else {
+        throw new Error(data.error || 'Action failed')
+      }
+    } catch (error: any) {
+      console.error('Job action error:', error)
+      setNotification({ message: error.message || 'Failed to perform action', type: 'error' })
+    }
+  }
+  
   const pollJobStatus = async (jobId: string) => {
     let pollCount = 0
     const maxPolls = 60 // Poll for up to 60 seconds
@@ -561,14 +616,45 @@ export default function Dashboard() {
                           {new Date(job.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => router.push(`/jobs/${job.id}`)}
-                            className="text-orange-600 hover:text-orange-700 font-medium transition-colors"
-                          >
-                            View Details →
-                          </motion.button>
+                          <div className="flex items-center gap-2">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => router.push(`/jobs/${job.id}`)}
+                              className="text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                            >
+                              View Details →
+                            </motion.button>
+                            {['pending', 'mapping', 'crawling', 'processing'].includes(job.status) && (
+                              <div className="relative group">
+                                <button className="p-1 text-gray-400 hover:text-gray-600">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                  </svg>
+                                </button>
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 hidden group-hover:block">
+                                  <button
+                                    onClick={() => handleJobAction(job.id, 'retry')}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    🔄 Retry Processing
+                                  </button>
+                                  <button
+                                    onClick={() => handleJobAction(job.id, 'complete')}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    ✅ Force Complete
+                                  </button>
+                                  <button
+                                    onClick={() => handleJobAction(job.id, 'cancel')}
+                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                  >
+                                    ❌ Cancel Job
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </motion.tr>
                     ))}
