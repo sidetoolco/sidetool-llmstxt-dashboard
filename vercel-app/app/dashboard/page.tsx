@@ -464,11 +464,29 @@ export default function Dashboard() {
           >
             <div className="stat-label">Total Crawls</div>
             <div className="stat-value">{jobs.length}</div>
-            <div className="stat-change stat-change-positive">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-              </svg>
-              Active
+            <div className="stat-change text-gray-500">
+              {(() => {
+                const activeCount = jobs.filter(j => 
+                  ['pending', 'mapping', 'crawling', 'processing'].includes(j.status)
+                ).length
+                const failedCount = jobs.filter(j => j.status === 'failed').length
+                
+                if (activeCount > 0) {
+                  return (
+                    <span className="text-orange-600">
+                      {activeCount} in progress
+                    </span>
+                  )
+                } else if (failedCount > 0) {
+                  return (
+                    <span className="text-red-600">
+                      {failedCount} need attention
+                    </span>
+                  )
+                } else {
+                  return 'All completed'
+                }
+              })()}
             </div>
           </motion.div>
           
@@ -483,7 +501,12 @@ export default function Dashboard() {
               {jobs.reduce((sum, job) => sum + job.urls_processed, 0).toLocaleString()}
             </div>
             <div className="stat-change text-gray-500">
-              All time
+              {(() => {
+                const totalExpected = jobs.reduce((sum, job) => sum + job.total_urls, 0)
+                const totalProcessed = jobs.reduce((sum, job) => sum + job.urls_processed, 0)
+                const percentage = totalExpected > 0 ? Math.round((totalProcessed / totalExpected) * 100) : 100
+                return `${percentage}% success rate`
+              })()}
             </div>
           </motion.div>
           
@@ -498,7 +521,10 @@ export default function Dashboard() {
               {formatBytes(jobs.reduce((sum, job) => sum + (job.total_content_size || 0), 0))}
             </div>
             <div className="stat-change text-gray-500">
-              Extracted
+              {(() => {
+                const completedCount = jobs.filter(j => j.status === 'completed').length
+                return completedCount > 0 ? `From ${completedCount} crawls` : 'No data yet'
+              })()}
             </div>
           </motion.div>
         </div>
