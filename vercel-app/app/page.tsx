@@ -36,9 +36,9 @@ export default function LandingPage() {
               className="flex items-center gap-2"
             >
               <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl">L</span>
+                <span className="text-white font-bold text-xl">S</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">LLMs.txt</span>
+              <span className="text-xl font-bold text-gray-900">SideGSO</span>
             </motion.div>
             
             <motion.div 
@@ -101,7 +101,7 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-              Generate standardized LLMs.txt files from any website with one click. 
+              Generate standardized llms.txt files from any website with one click. 
               Make your content discoverable by ChatGPT, Claude, and other AI systems.
             </p>
             
@@ -193,7 +193,7 @@ export default function LandingPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold">L</span>
               </div>
-              <span className="text-lg font-semibold text-gray-900">LLMs.txt Generator</span>
+              <span className="text-lg font-semibold text-gray-900">SideGSO</span>
             </div>
             <p className="text-sm text-gray-500">
               © 2024 SideGSO. All rights reserved.
@@ -291,7 +291,7 @@ function HowItWorksSection() {
     { number: '1', title: 'Enter Domain', description: 'Paste any website URL' },
     { number: '2', title: 'AI Crawls', description: 'Smart content extraction' },
     { number: '3', title: 'Process', description: 'GPT-4 generates summaries' },
-    { number: '4', title: 'Download', description: 'Get your LLMs.txt files' }
+    { number: '4', title: 'Download', description: 'Get your llms.txt files' }
   ]
 
   return (
@@ -410,7 +410,7 @@ function UseCasesSection() {
             </p>
             <ul className="space-y-3">
               {[
-                'Standard LLMs.txt format',
+                'Standard llms.txt format',
                 'Optimized for AI crawlers',
                 'Ready to deploy at /llms.txt'
               ].map((item, i) => (

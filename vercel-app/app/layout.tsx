@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://gso.sidetool.co'),
   title: 'SideGSO - Create AI-Ready Content from Any Website',
   description: 'Generate standardized llms.txt and llms-full.txt files from any website for LLM inference and training. Powered by Firecrawl and OpenAI.',
-  keywords: 'SideGSO, LLMs.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
+  keywords: 'SideGSO, llms.txt, AI content, web scraping, Firecrawl, OpenAI, GPT-4, content indexing',
   authors: [{ name: 'SideGSO Team' }],
   openGraph: {
     title: 'SideGSO',

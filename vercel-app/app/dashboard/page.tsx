@@ -155,9 +155,9 @@ export default function Dashboard() {
                 transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                 className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center"
               >
-                <span className="text-white font-bold text-xl">L</span>
+                <span className="text-white font-bold text-xl">S</span>
               </motion.div>
-              <span className="text-xl font-bold text-gray-900">LLMs.txt Generator</span>
+              <span className="text-xl font-bold text-gray-900">SideGSO</span>
             </div>
             
             <div className="flex items-center gap-4">
