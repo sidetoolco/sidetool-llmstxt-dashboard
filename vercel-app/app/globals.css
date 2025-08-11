@@ -95,27 +95,33 @@
 /* Buttons */
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-orange-500 text-white shadow-sm hover:bg-orange-600 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-orange-500 text-white shadow-sm hover:bg-orange-600 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-ghost {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-danger {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-success {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-green-500 text-white hover:bg-green-600 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-green-500 text-white hover:bg-green-600 transition-all duration-200;
+    cursor: pointer;
   }
   
   .btn-sm {
@@ -125,6 +131,7 @@
   .btn-lg {
     @apply px-8 py-4 text-base;
   }
+}
 
 /* Cards */
 @layer components {
@@ -214,6 +221,7 @@
     background-color: #F3F4F6;
     color: #374151;
   }
+}
 
 /* Navigation */
 @layer components {
