@@ -308,8 +308,8 @@ export default function Dashboard() {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Maximum Pages to Crawl
               </label>
-              <div className="grid grid-cols-5 gap-3">
-                {[10, 25, 50, 100, 250].map((value) => (
+              <div className="grid grid-cols-3 gap-3">
+                {[10, 25, 50].map((value) => (
                   <motion.button
                     key={value}
                     whileHover={{ scale: 1.05 }}
@@ -326,9 +326,9 @@ export default function Dashboard() {
                 ))}
               </div>
               <p className="mt-3 text-sm text-gray-500">
-                {maxPages < 50 ? '✨ Perfect for small sites' : 
-                 maxPages < 100 ? '🎯 Recommended for most sites' : 
-                 '🚀 Great for large sites'}
+                {maxPages === 10 ? '✨ Perfect for small sites' : 
+                 maxPages === 25 ? '🎯 Recommended for most sites' : 
+                 '🚀 Great for comprehensive coverage'}
               </p>
             </div>
             
