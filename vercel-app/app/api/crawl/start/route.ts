@@ -49,16 +49,26 @@ export async function POST(request: Request) {
       )
     }
     
-    // Check for active jobs
+    // Check for active jobs (allow up to 3 concurrent jobs per user)
+    const MAX_CONCURRENT_JOBS = 3
     const { data: activeJobs } = await supabase
       .from('crawl_jobs')
-      .select('id')
+      .select('id, domain')
       .eq('user_id', user_id)
       .in('status', ['pending', 'mapping', 'crawling', 'processing'])
     
-    if (activeJobs && activeJobs.length > 0) {
+    // Check if same domain is already being processed
+    if (activeJobs && activeJobs.some(job => job.domain === domain)) {
       return NextResponse.json(
-        { message: 'You already have an active job. Please wait for it to complete.' },
+        { message: `Already processing ${domain}. Please wait for it to complete.` },
+        { status: 429 }
+      )
+    }
+    
+    // Check if user has reached concurrent job limit
+    if (activeJobs && activeJobs.length >= MAX_CONCURRENT_JOBS) {
+      return NextResponse.json(
+        { message: `You have reached the maximum of ${MAX_CONCURRENT_JOBS} concurrent jobs. Please wait for one to complete.` },
         { status: 429 }
       )
     }
