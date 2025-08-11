@@ -42,18 +42,39 @@ export async function POST(request: Request) {
       }, { status: 403 })
     }
     
-    // Check if files already exist
+    // Check if files already exist and delete them if requested
+    const forceRegenerate = request.headers.get('X-Force-Regenerate') === 'true'
+    
     const { data: existingFiles } = await supabase
       .from('generated_files')
-      .select('id')
+      .select('id, file_type, file_path')
       .eq('job_id', job_id)
-      .limit(1)
     
     if (existingFiles && existingFiles.length > 0) {
-      return NextResponse.json({ 
-        message: 'Files already exist for this job',
-        files_count: existingFiles.length 
-      })
+      if (!forceRegenerate) {
+        // Return existing files info
+        return NextResponse.json({ 
+          message: 'Files already exist for this job',
+          files_count: existingFiles.length,
+          existing_files: existingFiles,
+          hint: 'Add header X-Force-Regenerate: true to regenerate files'
+        })
+      }
+      
+      // Delete existing files to regenerate
+      console.log(`Deleting ${existingFiles.length} existing files for job ${job_id}`)
+      const { error: deleteError } = await supabase
+        .from('generated_files')
+        .delete()
+        .eq('job_id', job_id)
+      
+      if (deleteError) {
+        console.error('Error deleting existing files:', deleteError)
+        return NextResponse.json({ 
+          error: 'Failed to delete existing files',
+          details: deleteError.message
+        }, { status: 500 })
+      }
     }
     
     // Check if there are any completed URLs to generate from
