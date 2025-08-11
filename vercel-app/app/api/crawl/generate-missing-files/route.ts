@@ -72,7 +72,18 @@ export async function POST(request: Request) {
     
     // Generate files
     console.log(`Generating files for job ${job_id} with ${urls.length} completed URLs`)
-    await generateSimpleFiles(job_id, supabase)
+    
+    let generatedFiles
+    try {
+      generatedFiles = await generateSimpleFiles(job_id, supabase)
+    } catch (genError: any) {
+      console.error('File generation error:', genError)
+      return NextResponse.json({ 
+        error: 'Failed to generate files',
+        details: genError.message,
+        urls_count: urls.length
+      }, { status: 500 })
+    }
     
     // Check how many files were created
     const { data: newFiles } = await supabase
@@ -84,7 +95,8 @@ export async function POST(request: Request) {
       success: true,
       message: `Generated ${newFiles?.length || 0} files for job ${job_id}`,
       urls_used: urls.length,
-      files: newFiles
+      files: newFiles,
+      generated_count: generatedFiles?.length || 0
     })
     
   } catch (error: any) {

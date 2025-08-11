@@ -148,12 +148,14 @@ export async function generateSimpleFiles(jobId: string, supabase: any) {
   })
   
   // Insert all files
-  const { error: insertError } = await supabase
+  const { data: insertedFiles, error: insertError } = await supabase
     .from('generated_files')
     .insert(filesToInsert)
+    .select()
   
   if (insertError) {
     console.error('Error inserting files:', insertError)
+    throw new Error(`Failed to insert files: ${insertError.message}`)
   } else {
     console.log(`Generated ${filesToInsert.length} files for job ${jobId}`)
   }
@@ -167,4 +169,6 @@ export async function generateSimpleFiles(jobId: string, supabase: any) {
       urls_processed: urls.length
     })
     .eq('id', jobId)
+  
+  return insertedFiles
 }
