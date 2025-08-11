@@ -147,15 +147,41 @@ export async function generateSimpleFiles(jobId: string, supabase: any) {
     content: fullContent
   })
   
-  // Insert all files
+  // Upsert files (insert or update if exists) to handle conflicts
   const { data: insertedFiles, error: insertError } = await supabase
     .from('generated_files')
-    .insert(filesToInsert)
+    .upsert(filesToInsert, {
+      onConflict: 'job_id,file_path',
+      ignoreDuplicates: false
+    })
     .select()
   
   if (insertError) {
-    console.error('Error inserting files:', insertError)
-    throw new Error(`Failed to insert files: ${insertError.message}`)
+    console.error('Error upserting files:', insertError)
+    // Try inserting files one by one if batch fails
+    const insertedIndividually = []
+    for (const file of filesToInsert) {
+      try {
+        const { data, error } = await supabase
+          .from('generated_files')
+          .upsert(file, {
+            onConflict: 'job_id,file_path',
+            ignoreDuplicates: false
+          })
+          .select()
+          .single()
+        if (data) insertedIndividually.push(data)
+      } catch (e) {
+        console.error(`Failed to insert file ${file.file_path}:`, e)
+      }
+    }
+    
+    if (insertedIndividually.length === 0) {
+      throw new Error(`Failed to insert files: ${insertError.message}`)
+    }
+    
+    console.log(`Generated ${insertedIndividually.length} files individually for job ${jobId}`)
+    return insertedIndividually
   } else {
     console.log(`Generated ${filesToInsert.length} files for job ${jobId}`)
   }
